@@ -2,6 +2,7 @@ import { Router } from "express";
 import { productController } from "./product.controller";
 import { verifyToken } from "../../middlewares/auth";
 import { authorizeRoles } from "../../middlewares/roleAuth";
+import { multerUpload } from "../../config/multer.config";
 
 const router = Router();
 
@@ -20,16 +21,27 @@ const router = Router();
  * @swagger
  * /products:
  *   post:
- *     summary: Create a new product
+ *     summary: Create a new product (with optional image uploads)
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required:
+ *               - productName
+ *               - productCategory
+ *               - productSKU
+ *               - companyName
+ *               - gender
+ *               - availableSize
+ *               - productDescription
+ *               - stock
+ *               - currency
+ *               - pricePerUnit
  *             properties:
  *               productName:
  *                 type: string
@@ -37,15 +49,59 @@ const router = Router();
  *               productCategory:
  *                 type: string
  *                 example: Electronics
- *               pricePerUnit:
- *                 type: number
- *                 example: 99.99
+ *               productSKU:
+ *                 type: string
+ *                 example: SW-001
+ *               companyName:
+ *                 type: string
+ *                 example: Apple
+ *               gender:
+ *                 type: string
+ *                 example: Unisex
+ *               availableSize:
+ *                 type: string
+ *                 example: One Size
+ *               productDescription:
+ *                 type: string
+ *                 example: Latest smartwatch with health tracking
  *               stock:
  *                 type: number
  *                 example: 100
- *               userId:
+ *               currency:
  *                 type: string
- *                 example: 652efb2d8c7b1a2c4c8a55d3
+ *                 example: USD
+ *               pricePerUnit:
+ *                 type: number
+ *                 example: 399.99
+ *               specialPrice:
+ *                 type: number
+ *                 example: 349.99
+ *               specialPriceStartingDate:
+ *                 type: string
+ *                 format: date
+ *               specialPriceEndingDate:
+ *                 type: string
+ *                 format: date
+ *               mainImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: Main product image (overrides mainImageUrl if provided)
+ *               sideImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: Side product image (overrides sideImageUrl if provided)
+ *               sideImage2:
+ *                 type: string
+ *                 format: binary
+ *                 description: Second side image (overrides sideImage2Url if provided)
+ *               lastImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: Last/back image (overrides lastImageUrl if provided)
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: Product video (overrides videoUrl if provided)
  *     responses:
  *       201:
  *         description: Product created successfully
@@ -54,6 +110,13 @@ router.post(
   "/",
   verifyToken,
   authorizeRoles("ADMIN", "VENDOR"),
+  multerUpload.fields([
+    { name: "mainImage", maxCount: 1 },
+    { name: "sideImage", maxCount: 1 },
+    { name: "sideImage2", maxCount: 1 },
+    { name: "lastImage", maxCount: 1 },
+    { name: "video", maxCount: 1 }
+  ]),
   productController.createProduct
 );
 
@@ -162,6 +225,25 @@ router.get("/", productController.getAllProducts);
 
 /**
  * @swagger
+ * /products/my/products:
+ *   get:
+ *     summary: Get all products created by the logged-in user
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of user's own products
+ */
+router.get(
+  "/my/products",
+  verifyToken,
+  authorizeRoles("ADMIN", "VENDOR"),
+  productController.getProductsByUser
+);
+
+/**
+ * @swagger
  * /products/{id}:
  *   get:
  *     summary: Get a product by ID
@@ -181,25 +263,6 @@ router.get("/", productController.getAllProducts);
  */
 router.get("/:id", productController.getProductById);
 
-/**
- * @swagger
- * /products/my/products:
- *   get:
- *     summary: Get all products created by the logged-in user
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of user’s own products
- */
-router.get(
-  "/my/products",
-  verifyToken,
-  authorizeRoles("ADMIN", "VENDOR"),
-  productController.getProductsByUser
-);
-
 /* ===========================
    ✏️ PATCH ROUTES
 =========================== */
@@ -208,7 +271,7 @@ router.get(
  * @swagger
  * /products/{id}:
  *   patch:
- *     summary: Update a product by ID
+ *     summary: Update a product by ID (with optional image uploads)
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -222,7 +285,7 @@ router.get(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -232,6 +295,24 @@ router.get(
  *               pricePerUnit:
  *                 type: number
  *                 example: 129.99
+ *               stock:
+ *                 type: number
+ *               mainImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: New main image (overrides mainImageUrl if provided)
+ *               sideImage:
+ *                 type: string
+ *                 format: binary
+ *               sideImage2:
+ *                 type: string
+ *                 format: binary
+ *               lastImage:
+ *                 type: string
+ *                 format: binary
+ *               video:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       200:
  *         description: Product updated successfully
@@ -240,6 +321,13 @@ router.patch(
   "/:id",
   verifyToken,
   authorizeRoles("ADMIN", "VENDOR"),
+  multerUpload.fields([
+    { name: "mainImage", maxCount: 1 },
+    { name: "sideImage", maxCount: 1 },
+    { name: "sideImage2", maxCount: 1 },
+    { name: "lastImage", maxCount: 1 },
+    { name: "video", maxCount: 1 }
+  ]),
   productController.updateProduct
 );
 

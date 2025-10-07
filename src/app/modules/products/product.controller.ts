@@ -5,16 +5,47 @@ class ProductController {
     async createProduct(req: Request, res: Response) {
         try {
             const userId = (req as any).user.id;
-            const product = await productService.createProduct({ ...req.body, userId })
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+            // Extract image URLs from uploaded files if present
+            const imageUrls: any = {};
+            
+            if (files?.mainImage && files.mainImage[0]) {
+                imageUrls.mainImageUrl = files.mainImage[0].path;
+            }
+            if (files?.sideImage && files.sideImage[0]) {
+                imageUrls.sideImageUrl = files.sideImage[0].path;
+            }
+            if (files?.sideImage2 && files.sideImage2[0]) {
+                imageUrls.sideImage2Url = files.sideImage2[0].path;
+            }
+            if (files?.lastImage && files.lastImage[0]) {
+                imageUrls.lastImageUrl = files.lastImage[0].path;
+            }
+            if (files?.video && files.video[0]) {
+                imageUrls.videoUrl = files.video[0].path;
+            }
+
+            // Merge form data with image URLs
+            const productData = {
+                ...req.body,
+                ...imageUrls,
+                userId
+            };
+
+            const product = await productService.createProduct(productData);
+            
             res.status(201).json({
                 success: true,
+                message: "Product created successfully",
                 data: product
-            })
+            });
         }
         catch (err: any) {
             res.status(400).json({ success: false, message: err.message })
         }
     }
+
     async createBulkProducts(req: Request, res: Response) {
         try {
             const userId = (req as any).user._id;
@@ -47,9 +78,42 @@ class ProductController {
 
     async updateProduct(req: Request, res: Response) {
         try {
-            const updated = await productService.updateProduct(req.params.id, req.body);
+            const { id } = req.params;
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+            // Extract image URLs from uploaded files if present
+            const imageUrls: any = {};
+            
+            if (files?.mainImage && files.mainImage[0]) {
+                imageUrls.mainImageUrl = files.mainImage[0].path;
+            }
+            if (files?.sideImage && files.sideImage[0]) {
+                imageUrls.sideImageUrl = files.sideImage[0].path;
+            }
+            if (files?.sideImage2 && files.sideImage2[0]) {
+                imageUrls.sideImage2Url = files.sideImage2[0].path;
+            }
+            if (files?.lastImage && files.lastImage[0]) {
+                imageUrls.lastImageUrl = files.lastImage[0].path;
+            }
+            if (files?.video && files.video[0]) {
+                imageUrls.videoUrl = files.video[0].path;
+            }
+
+            // Merge form data with image URLs
+            const updateData = {
+                ...req.body,
+                ...imageUrls
+            };
+
+            const updated = await productService.updateProduct(id, updateData);
             if (!updated) return res.status(404).json({ success: false, message: "Product not found" });
-            res.json({ success: true, data: updated });
+            
+            res.json({ 
+                success: true, 
+                message: "Product updated successfully",
+                data: updated 
+            });
         } catch (err: any) {
             res.status(400).json({ success: false, message: err.message });
         }
@@ -66,7 +130,7 @@ class ProductController {
 
     async getProductsByUser(req: Request, res: Response) {
         try {
-            const userId = (req as any).user._id;
+            const userId = (req as any).user.id;
             const products = await productService.getProductsByUser(userId);
             res.json({ success: true, data: products });
         } catch (err: any) {
@@ -100,7 +164,6 @@ class ProductController {
             res.status(400).json({ success: false, message: err.message });
         }
     }
-
 }
 
 export const productController = new ProductController();
