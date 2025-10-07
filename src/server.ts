@@ -1,9 +1,11 @@
 import { Server } from "http";
 import mongoose from "mongoose";
 import app from "./app"
+import { enVars } from "./app/config/env";
 
 
 let server: Server;
+const PORT = enVars.PORT || 5000
 
 
 const startServer = async () => {
@@ -12,7 +14,7 @@ const startServer = async () => {
         console.log("Connected to DB");
 
 
-        server = app.listen(5000, () => {
+        server = app.listen(PORT, () => {
             console.log("Server is listening to port 5000");
         })
     }
