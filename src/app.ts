@@ -4,10 +4,12 @@ import { setupSwagger } from "./app/config/swagger";
 import dotenv from "dotenv";
 import { ProductRoutes } from "./app/modules/products/product.routes";
 import { CMSRoutes } from "./app/modules/cms/cms.routes";
+import cors from "cors"
 
 dotenv.config();
 const app = express()
 app.use(express.json())
+app.use(cors())
 
 setupSwagger(app);
 app.use("/api/v1/users", UserRoutes);

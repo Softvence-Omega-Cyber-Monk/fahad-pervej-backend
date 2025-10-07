@@ -13,8 +13,8 @@ export const setupSwagger = (app: Express) => {
       },
       servers: [
         {
-          url: "http://localhost:5000/api/v1",
-          description: "Development server",
+          url: "https://fahadpervez-backend-803d.onrender.com",
+          description: "Live server",
         },
       ],
       tags: [
