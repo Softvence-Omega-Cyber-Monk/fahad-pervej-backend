@@ -13,7 +13,7 @@ export const setupSwagger = (app: Express) => {
       },
       servers: [
         {
-          url: "https://fahadpervez-backend-803d.onrender.com",
+          url: "https://fahadpervez-backend-803d.onrender.com/api/v1",
           description: "Live server",
         },
       ],
