@@ -187,27 +187,6 @@ router.patch("/deactivate/:id", verifyToken, authorizeRoles("ADMIN", "VENDOR", "
 
 /**
  * @swagger
- * /users/{id}:
- *   delete:
- *     summary: Delete a user (Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User deleted successfully
- */
-router.delete("/:id", verifyToken, authorizeRoles("ADMIN"), userController.deleteUser);
-
-/**
- * @swagger
  * /users/vendors:
  *   get:
  *     summary: Get all vendors (Admin only)
@@ -254,5 +233,26 @@ router.get("/customers", verifyToken, authorizeRoles("ADMIN"), userController.ge
  *         description: Vendor verified successfully
  */
 router.patch("/vendor/verify/:id", verifyToken, authorizeRoles("ADMIN"), userController.verifyVendor);
+
+/**
+ * @swagger
+ * /users/{id}:
+ *   delete:
+ *     summary: Delete a user (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ */
+router.delete("/:id", verifyToken, authorizeRoles("ADMIN"), userController.deleteUser);
 
 export const UserRoutes = router;

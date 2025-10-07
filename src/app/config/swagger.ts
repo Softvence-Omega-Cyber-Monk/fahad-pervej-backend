@@ -17,6 +17,16 @@ export const setupSwagger = (app: Express) => {
           description: "Development server",
         },
       ],
+      tags: [
+        {
+          name: "Users",
+          description: "User management endpoints",
+        },
+        {
+          name: "Products",
+          description: "Product management APIs (Admin & Vendor)",
+        },
+      ],
       components: {
         securitySchemes: {
           bearerAuth: {
@@ -26,12 +36,18 @@ export const setupSwagger = (app: Express) => {
           },
         },
       },
-      security: [{ bearerAuth: [] }],
     },
-    apis: ["./src/app/modules/users/*.ts"], // route files with Swagger comments
+    apis: ["./src/app/modules/**/*.ts"],
+    // route files with Swagger comments
   };
 
+
   const swaggerSpec = swaggerJSDoc(options);
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+      tagsSorter: 'none',
+      operationsSorter: 'none',
+    }
+  }));
   console.log("📘 Swagger docs available at: http://localhost:5000/docs");
 };
