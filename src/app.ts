@@ -10,6 +10,8 @@ import { setupSwagger } from "./app/config/swagger";
 import { ProductRoutes } from "./app/modules/products/product.routes";
 import { CMSRoutes } from "./app/modules/cms/cms.routes";
 import cors from "cors"
+import { WishlistRoutes } from "./app/modules/wishlist/wishlist.routes";
+import { CategoryRoute } from "./app/modules/category/category.route";
 
 
 app.use(express.json())
@@ -19,6 +21,8 @@ setupSwagger(app);
 app.use("/api/v1/users", UserRoutes);
 app.use("/api/v1/products", ProductRoutes);
 app.use("/api/v1/cms", CMSRoutes);
+app.use("/api/v1/wishlist", WishlistRoutes)
+app.use("/api/v1/category", CategoryRoute)
 
 app.get("/", (req: Request, res: Response) => {
     res.status(200).json("Welcome to multivendor medicine app");
