@@ -2,7 +2,7 @@ import { Router } from "express";
 import { productController } from "./product.controller";
 import { verifyToken } from "../../middlewares/auth";
 import { authorizeRoles } from "../../middlewares/roleAuth";
-import { multerUpload } from "../../config/multer.config";
+import { multerUpload } from "../../middlewares/multerUpload";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ const router = Router();
  * @swagger
  * /products:
  *   post:
- *     summary: Create a new product (with optional image uploads)
+ *     summary: Create a new product (with optional image or video uploads)
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -85,23 +85,18 @@ const router = Router();
  *               mainImage:
  *                 type: string
  *                 format: binary
- *                 description: Main product image (overrides mainImageUrl if provided)
  *               sideImage:
  *                 type: string
  *                 format: binary
- *                 description: Side product image (overrides sideImageUrl if provided)
  *               sideImage2:
  *                 type: string
  *                 format: binary
- *                 description: Second side image (overrides sideImage2Url if provided)
  *               lastImage:
  *                 type: string
  *                 format: binary
- *                 description: Last/back image (overrides lastImageUrl if provided)
  *               video:
  *                 type: string
  *                 format: binary
- *                 description: Product video (overrides videoUrl if provided)
  *     responses:
  *       201:
  *         description: Product created successfully
@@ -115,7 +110,7 @@ router.post(
     { name: "sideImage", maxCount: 1 },
     { name: "sideImage2", maxCount: 1 },
     { name: "lastImage", maxCount: 1 },
-    { name: "video", maxCount: 1 }
+    { name: "video", maxCount: 1 },
   ]),
   productController.createProduct
 );
@@ -124,7 +119,7 @@ router.post(
  * @swagger
  * /products/bulk:
  *   post:
- *     summary: Create multiple products
+ *     summary: Create multiple products at once
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -168,7 +163,7 @@ router.post(
  * @swagger
  * /products/admin:
  *   get:
- *     summary: Get all products with their seller details
+ *     summary: Get all products with seller details
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -187,7 +182,7 @@ router.get(
  * @swagger
  * /products/admin/{id}:
  *   get:
- *     summary: Get a specific product with seller details by ID
+ *     summary: Get product with seller details by ID
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -215,7 +210,7 @@ router.get(
  * @swagger
  * /products:
  *   get:
- *     summary: Get all products (without seller info)
+ *     summary: Get all products (public)
  *     tags: [Products]
  *     responses:
  *       200:
@@ -227,13 +222,13 @@ router.get("/", productController.getAllProducts);
  * @swagger
  * /products/my/products:
  *   get:
- *     summary: Get all products created by the logged-in user
+ *     summary: Get products created by the logged-in vendor
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of user's own products
+ *         description: List of vendor's products
  */
 router.get(
   "/my/products",
@@ -246,7 +241,7 @@ router.get(
  * @swagger
  * /products/{id}:
  *   get:
- *     summary: Get a product by ID
+ *     summary: Get product by ID
  *     tags: [Products]
  *     parameters:
  *       - in: path
@@ -257,7 +252,7 @@ router.get(
  *           example: 652f0caa24d9f62ed3e56b9a
  *     responses:
  *       200:
- *         description: Product found successfully
+ *         description: Product found
  *       404:
  *         description: Product not found
  */
@@ -271,7 +266,7 @@ router.get("/:id", productController.getProductById);
  * @swagger
  * /products/{id}:
  *   patch:
- *     summary: Update a product by ID (with optional image uploads)
+ *     summary: Update product by ID (with optional image or video)
  *     tags: [Products]
  *     security:
  *       - bearerAuth: []
@@ -300,7 +295,6 @@ router.get("/:id", productController.getProductById);
  *               mainImage:
  *                 type: string
  *                 format: binary
- *                 description: New main image (overrides mainImageUrl if provided)
  *               sideImage:
  *                 type: string
  *                 format: binary
@@ -326,7 +320,7 @@ router.patch(
     { name: "sideImage", maxCount: 1 },
     { name: "sideImage2", maxCount: 1 },
     { name: "lastImage", maxCount: 1 },
-    { name: "video", maxCount: 1 }
+    { name: "video", maxCount: 1 },
   ]),
   productController.updateProduct
 );

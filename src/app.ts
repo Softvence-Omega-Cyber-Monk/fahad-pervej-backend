@@ -1,13 +1,17 @@
 import express, { type Request, type Response } from "express";
+import dotenv from "dotenv";
+dotenv.config();
+const app = express()
+
+
 import { UserRoutes } from "./app/modules/users/user.routes";
 import { setupSwagger } from "./app/config/swagger";
-import dotenv from "dotenv";
+
 import { ProductRoutes } from "./app/modules/products/product.routes";
 import { CMSRoutes } from "./app/modules/cms/cms.routes";
 import cors from "cors"
 
-dotenv.config();
-const app = express()
+
 app.use(express.json())
 app.use(cors())
 
