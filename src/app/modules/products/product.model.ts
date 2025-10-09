@@ -7,8 +7,8 @@ const productSchema = new Schema<IProduct>({
         required: true
     },
     productCategory: {
-        type: String,
-        required: true
+        type: Schema.Types.ObjectId,
+        ref:"Category", required: true
     },
     productSKU: { 
         type: String, 
@@ -67,6 +67,18 @@ const productSchema = new Schema<IProduct>({
     },
     videoUrl: { 
         type: String 
+    },
+    width: {
+        type: Number
+    },
+    height: {
+        type: Number
+    },
+    length: {
+        type: Number
+    },
+    weight: {
+        type: Number
     },
     userId: { 
         type: Schema.Types.ObjectId, 
