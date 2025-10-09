@@ -2,7 +2,7 @@ import { Document, Schema } from "mongoose";
 
 export interface IProduct extends Document {
     productName: string,
-    productCategory: string,
+    productCategory: Schema.Types.ObjectId,
     productSKU: string,
     companyName: string,
     gender: string,
@@ -21,6 +21,10 @@ export interface IProduct extends Document {
     videoUrl?: string,
     createdAt: Date,
     updatedAt: Date,
+    width?: number,
+    height?:number,
+    length?: number,
+    weight: number,
     userId: Schema.Types.ObjectId
 }
 
