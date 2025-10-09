@@ -1,12 +1,12 @@
-import { Request, Response } from "express";
+import { CookieOptions, Request, Response } from "express";
 import { userService } from "./user.service";
 
 // Cookie configuration helper function
 const getCookieOptions = (maxAge: number) => {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // true in production
-    sameSite: "strict" as const,
+    secure: process.env.NODE_ENV === "production", 
+    sameSite: "none" as CookieOptions["sameSite"],
     maxAge: maxAge,
   };
 };
