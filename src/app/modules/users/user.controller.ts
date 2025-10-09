@@ -5,7 +5,8 @@ import { userService } from "./user.service";
 const getCookieOptions = (maxAge: number) => {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // true in production
+    // secure: process.env.NODE_ENV === "production", // true in production
+    secure: true,
     sameSite: "strict" as const,
     maxAge: maxAge,
   };
