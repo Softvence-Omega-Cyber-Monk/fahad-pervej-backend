@@ -42,6 +42,7 @@ const router = Router();
  *               - stock
  *               - currency
  *               - pricePerUnit
+ *               - weight
  *             properties:
  *               productName:
  *                 type: string
@@ -97,6 +98,14 @@ const router = Router();
  *               video:
  *                 type: string
  *                 format: binary
+ *               length: 
+ *                 type: number
+ *               width: 
+ *                 type: number
+ *               height: 
+ *                 type: number
+ *               weight: 
+ *                 type: number
  *     responses:
  *       201:
  *         description: Product created successfully
