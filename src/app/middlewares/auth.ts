@@ -2,12 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  // Check for token in cookies first, then fallback to Authorization header
+  let token = req.cookies?.accessToken;
+  
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+  }
+
+  if (!token) {
     return res.status(401).json({ success: false, message: "Unauthorized: No token provided" });
   }
 
-  const token = authHeader.split(" ")[1];
   try {
     const secret = process.env.JWT_SECRET || "secretkey";
     const decoded = jwt.verify(token, secret);
