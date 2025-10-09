@@ -1,8 +1,14 @@
 import { UserModel } from "./user.model";
 import { IUser } from "./user.interface";
+import jwt from "jsonwebtoken";
+
+interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+}
 
 export class UserService {
-  async registerCustomer(payload: Partial<IUser>): Promise<{ user: IUser; token: string }> {
+  async registerCustomer(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
     payload.role = "CUSTOMER";
     const existingUser = await UserModel.findOne({ email: payload.email });
     if (existingUser) throw new Error("Email already exists");
@@ -10,11 +16,11 @@ export class UserService {
     const user = new UserModel(payload);
     await user.save();
 
-    const token = this.generateToken(user.id.toString(), user.role);
-    return { user, token };
+    const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
+    return { user, accessToken, refreshToken };
   }
 
-  async registerVendor(payload: Partial<IUser>): Promise<{ user: IUser; token: string }> {
+  async registerVendor(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
     payload.role = "VENDOR";
     payload.isVerified = false;
     const existingUser = await UserModel.findOne({ email: payload.email });
@@ -23,11 +29,11 @@ export class UserService {
     const user = new UserModel(payload);
     await user.save();
 
-    const token = this.generateToken(user.id.toString(), user.role);
-    return { user, token };
+    const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
+    return { user, accessToken, refreshToken };
   }
 
-  async login(email: string, password: string): Promise<{ user: IUser; token: string }> {
+  async login(email: string, password: string): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
     const user = await UserModel.findOne({ email }).select("+password");
     if (!user) throw new Error("Invalid email or password");
 
@@ -37,9 +43,27 @@ export class UserService {
     if (user.role === "VENDOR" && !user.isVerified)
       throw new Error("Your vendor profile is pending admin verification");
 
-    const token = this.generateToken(user.id.toString(), user.role);
+    const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
     user.password = ""; // remove password from response
-    return { user, token };
+    return { user, accessToken, refreshToken };
+  }
+
+  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string }> {
+    try {
+      const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
+      const decoded = jwt.verify(refreshToken, secret) as { id: string; role: string };
+      
+      // Verify user still exists and is active
+      const user = await UserModel.findById(decoded.id);
+      if (!user || !user.isActive) {
+        throw new Error("User not found or inactive");
+      }
+
+      const accessToken = this.generateAccessToken(decoded.id, decoded.role);
+      return { accessToken };
+    } catch (error) {
+      throw new Error("Invalid or expired refresh token");
+    }
   }
 
   async verifyVendor(vendorId: string): Promise<IUser | null> {
@@ -93,10 +117,22 @@ export class UserService {
     await UserModel.findByIdAndDelete(userId);
   }
 
-  // ================== HELPER METHOD ==================
-  private generateToken(id: string, role: string): string {
+  // ================== TOKEN HELPERS ==================
+  private generateAccessToken(id: string, role: string): string {
     const secret = process.env.JWT_SECRET || "secretkey";
-    return require("jsonwebtoken").sign({ id, role }, secret, { expiresIn: "7d" });
+    return jwt.sign({ id, role }, secret, { expiresIn: "15m" }); // 15 minutes
+  }
+
+  private generateRefreshToken(id: string, role: string): string {
+    const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
+    return jwt.sign({ id, role }, secret, { expiresIn: "7d" }); // 7 days
+  }
+
+  private generateTokens(id: string, role: string): TokenPair {
+    return {
+      accessToken: this.generateAccessToken(id, role),
+      refreshToken: this.generateRefreshToken(id, role),
+    };
   }
 }
 
