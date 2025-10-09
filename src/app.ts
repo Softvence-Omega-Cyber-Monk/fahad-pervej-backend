@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from "express";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 dotenv.config();
 const app = express()
 
@@ -13,9 +14,10 @@ import cors from "cors"
 import { WishlistRoutes } from "./app/modules/wishlist/wishlist.routes";
 import { CategoryRoute } from "./app/modules/category/category.route";
 
-
+app.use(cookieParser());
 app.use(express.json())
 app.use(cors())
+app.use(express.urlencoded({ extended: true }));
 
 setupSwagger(app);
 app.use("/api/v1/users", UserRoutes);
