@@ -48,7 +48,7 @@ export interface IUser extends Document {
   vendorContract?: string,
   isSellerPolicyAccepted?: boolean,
   address?: string;
-  phone?: string;
+  phone?: string | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
