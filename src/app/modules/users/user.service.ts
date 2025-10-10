@@ -52,7 +52,7 @@ export class UserService {
     try {
       const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
       const decoded = jwt.verify(refreshToken, secret) as { id: string; role: string };
-      
+
       // Verify user still exists and is active
       const user = await UserModel.findById(decoded.id);
       if (!user || !user.isActive) {
@@ -98,6 +98,23 @@ export class UserService {
 
     if (!updatedUser) throw new Error("User not found");
     return updatedUser;
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    const user = await UserModel.findById(userId).select("+password");
+    if (!user) throw new Error("User not found");
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) throw new Error("Current password is incorrect");
+
+    // Update password (pre-save hook should hash it)
+    user.password = newPassword;
+    await user.save();
   }
 
   async deactivateUser(userId: string, reason?: string): Promise<IUser | null> {

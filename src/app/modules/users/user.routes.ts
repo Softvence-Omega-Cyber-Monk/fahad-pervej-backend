@@ -183,14 +183,81 @@ router.get("/profile", verifyToken, userController.getProfile);
  *             type: object
  *             properties:
  *               name: { type: string, example: John Updated }
- *               address: { type: string, example: "New Street, City" }
+ *               email: { type: string, example: newemail@example.com }
+ *               address: { type: string, example: "456 New Street, City" }
  *               phone: { type: string, example: "+1234567890" }
- *               businessDescription: { type: string, example: "Updated description" }
+ *               businessName: { type: string, example: "Updated Business Name" }
+ *               businessCRNumber: { type: string, example: CR789012 }
+ *               CRDocuments: { type: string, example: "/uploads/new-cr.pdf" }
+ *               businessType: { type: string, example: "Wholesale" }
+ *               businessDescription: { type: string, example: "Updated business description" }
+ *               country: { type: string, example: "Canada" }
+ *               productCategory: 
+ *                 type: array
+ *                 items: 
+ *                   type: string
+ *                   enum: [Analgesics, Antibiotics, Cardiovascular Medications, Antidiabetic Medications, Central Nervous System, All]
+ *                 example: ["Antibiotics", "Analgesics"]
+ *               shippingLocation:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: ["Local within city state", "National within country", "International"]
+ *                 example: ["National within country", "International"]
+ *               storeDescription: { type: string, example: "Premium medical supplies online" }
+ *               paymentMethod: 
+ *                 type: string
+ *                 enum: ["Bank Account", "Paypal", "Stripe"]
+ *                 example: "Paypal"
+ *               bankAccountHolderName: { type: string, example: "John Doe" }
+ *               bankAccountNumber: { type: string, example: "87654321" }
+ *               bankRoughingNumber: { type: string, example: "987654321" }
+ *               taxId: { type: string, example: "TAX67890" }
+ *               isPrivacyPolicyAccepted: { type: boolean, example: true }
+ *               vendorSignature: { type: string, example: "John Doe Signature" }
+ *               vendorContract: { type: string, example: "/uploads/updated_contract.pdf" }
+ *               isSellerPolicyAccepted: { type: boolean, example: true }
+ *               orderNotification: { type: string, example: "email" }
+ *               promotionNotification: { type: string, example: "sms" }
+ *               communicationAlert: { type: string, example: "push" }
+ *               newReviewsNotification: { type: string, example: "email" }
  *     responses:
  *       200:
  *         description: Profile updated successfully
  */
 router.patch("/profile", verifyToken, userController.updateUser);
+
+/**
+ * @swagger
+ * /users/change-password:
+ *   put:
+ *     summary: Change password for logged-in user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword: { type: string, example: "oldPassword123" }
+ *               newPassword: { type: string, example: "newPassword123" }
+ *               confirmPassword: { type: string, example: "newPassword123" }
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid input or password mismatch
+ *       401:
+ *         description: Current password is incorrect
+ */
+router.put("/change-password", verifyToken, userController.changePassword);
 
 /**
  * @swagger

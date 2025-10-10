@@ -49,6 +49,10 @@ export interface IUser extends Document {
   isSellerPolicyAccepted?: boolean,
   address?: string;
   phone?: string | null;
+  orderNotification?: string,
+  promotionNotification?:string,
+  communicationAlert?: string,
+  newReviewsNotification?: string, 
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;

@@ -13,6 +13,7 @@ import { CMSRoutes } from "./app/modules/cms/cms.routes";
 import cors from "cors"
 import { WishlistRoutes } from "./app/modules/wishlist/wishlist.routes";
 import { CategoryRoute } from "./app/modules/category/category.route";
+import { ReviewRoutes } from "./app/modules/review/review.routes";
 
 app.use(cookieParser());
 app.use(express.json())
@@ -28,6 +29,7 @@ app.use("/api/v1/products", ProductRoutes);
 app.use("/api/v1/cms", CMSRoutes);
 app.use("/api/v1/wishlist", WishlistRoutes)
 app.use("/api/v1/category", CategoryRoute)
+app.use("/api/v1/reviews", ReviewRoutes)
 
 app.get("/", (req: Request, res: Response) => {
     res.status(200).json("Welcome to multivendor medicine app");

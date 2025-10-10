@@ -43,6 +43,10 @@ const userSchema = new Schema<IUser>(
     vendorContract: { type: String },
     isSellerPolicyAccepted: { type: Boolean },
     address: { type: String },
+    orderNotification: {type: String, default: "New Order"},
+    promotionNotification: {type: String, default: "Promotion Notification"},
+    communicationAlert: {type: String, default: "Communication Alerts"},
+    newReviewsNotification: {type: String, default: "New Reviews"},
     phone: { type: String },
   },
   {
