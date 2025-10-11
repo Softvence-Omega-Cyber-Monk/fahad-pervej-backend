@@ -5,7 +5,12 @@ import reviewService from './review.service';
 class ReviewController {
   async createReview(req: Request, res: Response, next: NextFunction) {
     try {
-      const review = await reviewService.createReview(req.body);
+      const userId = (req as any).user.id; // from auth middleware
+      const reviewData = {
+        ...req.body,
+        user: userId,
+      };
+      const review = await reviewService.createReview(reviewData);
       res.status(201).json({
         success: true,
         message: 'Review created successfully',
@@ -34,9 +39,16 @@ class ReviewController {
     try {
       const review = await reviewService.getReviewById(req.params.id);
       if (!review) {
-        return res.status(404).json({ success: false, message: 'Review not found' });
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Review not found' 
+        });
       }
-      res.status(200).json({ success: true, data: review });
+      res.status(200).json({ 
+        success: true, 
+        message: 'Review retrieved successfully',
+        data: review 
+      });
     } catch (error) {
       next(error);
     }
@@ -46,9 +58,16 @@ class ReviewController {
     try {
       const review = await reviewService.updateReview(req.params.id, req.body);
       if (!review) {
-        return res.status(404).json({ success: false, message: 'Review not found' });
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Review not found' 
+        });
       }
-      res.status(200).json({ success: true, message: 'Review updated', data: review });
+      res.status(200).json({ 
+        success: true, 
+        message: 'Review updated successfully', 
+        data: review 
+      });
     } catch (error) {
       next(error);
     }
@@ -58,9 +77,15 @@ class ReviewController {
     try {
       const review = await reviewService.deleteReview(req.params.id);
       if (!review) {
-        return res.status(404).json({ success: false, message: 'Review not found' });
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Review not found' 
+        });
       }
-      res.status(200).json({ success: true, message: 'Review deleted' });
+      res.status(200).json({ 
+        success: true, 
+        message: 'Review deleted successfully' 
+      });
     } catch (error) {
       next(error);
     }
@@ -69,7 +94,17 @@ class ReviewController {
   async upvoteReview(req: Request, res: Response, next: NextFunction) {
     try {
       const review = await reviewService.upvoteReview(req.params.id);
-      res.status(200).json({ success: true, message: 'Upvoted', data: review });
+      if (!review) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Review not found' 
+        });
+      }
+      res.status(200).json({ 
+        success: true, 
+        message: 'Review upvoted successfully', 
+        data: review 
+      });
     } catch (error) {
       next(error);
     }
@@ -78,7 +113,17 @@ class ReviewController {
   async downvoteReview(req: Request, res: Response, next: NextFunction) {
     try {
       const review = await reviewService.downvoteReview(req.params.id);
-      res.status(200).json({ success: true, message: 'Downvoted', data: review });
+      if (!review) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Review downvoted successfully' 
+        });
+      }
+      res.status(200).json({ 
+        success: true, 
+        message: 'Downvoted successfully', 
+        data: review 
+      });
     } catch (error) {
       next(error);
     }
@@ -87,9 +132,19 @@ class ReviewController {
   async addReply(req: Request, res: Response, next: NextFunction) {
     try {
       const { text } = req.body;
-      const userId = (req as any).user.id; // assuming auth middleware
+      const userId = (req as any).user.id; // from auth middleware
       const review = await reviewService.addReply(req.params.id, userId, text);
-      res.status(201).json({ success: true, message: 'Reply added', data: review });
+      if (!review) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Review not found' 
+        });
+      }
+      res.status(201).json({ 
+        success: true, 
+        message: 'Reply added successfully', 
+        data: review 
+      });
     } catch (error) {
       next(error);
     }

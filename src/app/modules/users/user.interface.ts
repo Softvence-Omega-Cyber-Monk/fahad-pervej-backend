@@ -27,6 +27,7 @@ export interface IUser extends Document {
   password: string;
   role: "ADMIN" | "VENDOR" | "CUSTOMER";
   isActive: boolean;
+  profileImage?: string,
   deactivationReason?: string,
   isVerified?: boolean; 
   businessName? : string,
@@ -55,5 +56,6 @@ export interface IUser extends Document {
   newReviewsNotification?: string, 
   createdAt: Date;
   updatedAt: Date;
+  language: string,
   comparePassword(candidatePassword: string): Promise<boolean>;
 }

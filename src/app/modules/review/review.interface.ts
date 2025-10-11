@@ -3,7 +3,6 @@ import { Document, Types } from 'mongoose';
 
 export interface IReview extends Document {
   product: Types.ObjectId;
-  vendor: Types.ObjectId;
   user: Types.ObjectId;
   rating: number;
   feedback: string;
@@ -22,7 +21,6 @@ export interface IReply {
 
 export interface ICreateReview {
   product: string;
-  vendor: string;
   user: string;
   rating: number;
   feedback: string;
@@ -35,7 +33,6 @@ export interface IUpdateReview {
 
 export interface IReviewQuery {
   product?: string;
-  vendor?: string;
   user?: string;
   rating?: number;
   page?: number;

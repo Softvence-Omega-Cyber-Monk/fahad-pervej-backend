@@ -55,7 +55,7 @@ export class UserController {
       const { user, accessToken, refreshToken } = await userService.login(email, password);
 
       // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
+      res.cookie("accessToken", accessToken, getCookieOptions(60 * 60 * 1000)); // 15 minutes
       res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
 
       res.json({

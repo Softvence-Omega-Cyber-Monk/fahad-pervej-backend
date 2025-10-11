@@ -26,12 +26,6 @@ const reviewSchema = new Schema<IReview>(
       required: [true, 'Product ID is required'],
       index: true,
     },
-    vendor: {
-      type: Schema.Types.ObjectId,
-      ref: 'Vendor',
-      required: [true, 'Vendor ID is required'],
-      index: true,
-    },
     user: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -67,8 +61,9 @@ const reviewSchema = new Schema<IReview>(
   }
 );
 
+// Indexes for optimized queries
 reviewSchema.index({ product: 1, rating: -1 });
-reviewSchema.index({ vendor: 1, createdAt: -1 });
 reviewSchema.index({ user: 1, product: 1 }, { unique: true });
+reviewSchema.index({ createdAt: -1 });
 
 export const Review = model<IReview>('Review', reviewSchema);

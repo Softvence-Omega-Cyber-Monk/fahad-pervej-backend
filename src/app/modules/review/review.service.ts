@@ -1,16 +1,22 @@
 // src/modules/reviews/review.service.ts
 import { Review } from './review.model';
 import { ICreateReview, IUpdateReview, IReviewQuery } from './review.interface';
+import { ProductModel } from '../products/product.model';
 
 class ReviewService {
   async createReview(data: ICreateReview) {
+    // Validate product exists
+    const product = await ProductModel.findById(data.product);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+    
     return await Review.create(data);
   }
 
   async getReviews(query: IReviewQuery) {
     const {
       product,
-      vendor,
       user,
       rating,
       page = 1,
@@ -21,7 +27,6 @@ class ReviewService {
 
     const filter: any = {};
     if (product) filter.product = product;
-    if (vendor) filter.vendor = vendor;
     if (user) filter.user = user;
     if (rating) filter.rating = rating;
 
@@ -31,7 +36,8 @@ class ReviewService {
     const [reviews, total] = await Promise.all([
       Review.find(filter)
         .populate('user', 'name email avatar')
-        .populate('product', 'name')
+        .populate('product', 'name images')
+        .populate('replies.user', 'name avatar')
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -53,15 +59,16 @@ class ReviewService {
   async getReviewById(id: string) {
     return await Review.findById(id)
       .populate('user', 'name email avatar')
-      .populate('product', 'name')
-      .populate('vendor', 'name');
+      .populate('product', 'name images')
+      .populate('replies.user', 'name avatar');
   }
 
   async updateReview(id: string, data: IUpdateReview) {
     return await Review.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
-    });
+    }).populate('user', 'name email avatar')
+      .populate('product', 'name images');
   }
 
   async deleteReview(id: string) {
@@ -69,11 +76,21 @@ class ReviewService {
   }
 
   async upvoteReview(id: string) {
-    return await Review.findByIdAndUpdate(id, { $inc: { upVotes: 1 } }, { new: true });
+    return await Review.findByIdAndUpdate(
+      id, 
+      { $inc: { upVotes: 1 } }, 
+      { new: true }
+    ).populate('user', 'name email avatar')
+      .populate('product', 'name images');
   }
 
   async downvoteReview(id: string) {
-    return await Review.findByIdAndUpdate(id, { $inc: { downVotes: 1 } }, { new: true });
+    return await Review.findByIdAndUpdate(
+      id, 
+      { $inc: { downVotes: 1 } }, 
+      { new: true }
+    ).populate('user', 'name email avatar')
+      .populate('product', 'name images');
   }
 
   async addReply(id: string, userId: string, text: string) {
@@ -86,7 +103,9 @@ class ReviewService {
       },
       { new: true }
     )
-      .populate('replies.user', 'name avatar email')
+      .populate('user', 'name avatar email')
+      .populate('product', 'name images')
+      .populate('replies.user', 'name avatar')
       .lean();
   }
 }
