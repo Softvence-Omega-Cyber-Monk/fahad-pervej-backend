@@ -23,7 +23,7 @@ import { OrderRoute } from "./app/modules/order/order.routes";
 app.use(cookieParser());
 app.use(express.json())
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://fahadpervez-client.vercel.app"],
     credentials: true
 }))
 app.use(express.urlencoded({ extended: true }));
