@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { WishlistController } from "./wishlist.controller";
+import { verifyToken } from "../../middlewares/auth";
+import { authorizeRoles } from "../../middlewares/roleAuth";
 
 const router = Router();
 
@@ -34,23 +36,14 @@ const router = Router();
  *     responses:
  *       201:
  *         description: Product added to wishlist
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Product added to wishlist
- *                 data:
- *                   $ref: '#/components/schemas/Wishlist'
  *       400:
  *         description: Product already in wishlist or invalid input
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Insufficient permissions
  */
-router.post("/", WishlistController.addToWishlist);
+router.post("/", verifyToken, authorizeRoles("CUSTOMER", "ADMIN"), WishlistController.addToWishlist);
 
 /**
  * @swagger
@@ -70,37 +63,23 @@ router.post("/", WishlistController.addToWishlist);
  *     responses:
  *       200:
  *         description: Product removed from wishlist
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Product removed from wishlist
  *       400:
  *         description: Invalid product ID or not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Insufficient permissions
  */
-router.delete("/:productId", WishlistController.removeFromWishlist);
+router.delete("/:productId", verifyToken, authorizeRoles("CUSTOMER", "ADMIN"), WishlistController.removeFromWishlist);
 
 /**
  * @swagger
- * /wishlist/{userId}:
+ * /wishlist:
  *   get:
- *     summary: Get all wishlist products of a user
+ *     summary: Get all wishlist products of the authenticated user
  *     tags: [Wishlist]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID of the user
  *     responses:
  *       200:
  *         description: Wishlist fetched successfully
@@ -116,9 +95,11 @@ router.delete("/:productId", WishlistController.removeFromWishlist);
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/Wishlist'
- *       400:
- *         description: Invalid user ID
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Insufficient permissions
  */
-router.get("/:userId", WishlistController.getUserWishlist);
+router.get("/", verifyToken, authorizeRoles("CUSTOMER", "ADMIN"), WishlistController.getUserWishlist);
 
 export const WishlistRoutes = router;

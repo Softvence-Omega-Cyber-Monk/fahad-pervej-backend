@@ -144,10 +144,29 @@ export class UserController {
   async updateUser(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const updatedUser = await userService.updateUser(userId, req.body);
-      res.json({ success: true, message: "Profile updated successfully", data: updatedUser });
+
+      // Extract files from multer
+      const files = req.files as {
+        [fieldname: string]: Express.Multer.File[]
+      };
+
+      const imageFiles = {
+        profileImage: files?.profileImage,
+        storeBanner: files?.storeBanner,
+      };
+
+      const updatedUser = await userService.updateUser(userId, req.body, imageFiles);
+
+      res.json({
+        success: true,
+        message: "Profile updated successfully",
+        data: updatedUser
+      });
     } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
     }
   }
   async changePassword(req: Request, res: Response) {

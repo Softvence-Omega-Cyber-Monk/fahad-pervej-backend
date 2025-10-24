@@ -57,5 +57,10 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   language: string,
+  //new
+  currency: string,
+  holdingTime: number,
+  categories: string[],  
+  storeBanner: string,
   comparePassword(candidatePassword: string): Promise<boolean>;
 }

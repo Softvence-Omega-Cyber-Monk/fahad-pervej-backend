@@ -2,6 +2,7 @@ import { Router } from "express";
 import { userController } from "./user.controller";
 import { verifyToken } from "../../middlewares/auth";
 import { authorizeRoles } from "../../middlewares/roleAuth";
+import { multerUpload } from "../../middlewares/multerUpload";
 
 const router = Router();
 
@@ -171,61 +172,139 @@ router.get("/profile", verifyToken, userController.getProfile);
  * @swagger
  * /users/profile:
  *   patch:
- *     summary: Update logged-in user profile
+ *     summary: Update logged-in user profile with optional image uploads
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               name: { type: string, example: John Updated }
- *               email: { type: string, example: newemail@example.com }
- *               address: { type: string, example: "456 New Street, City" }
- *               phone: { type: string, example: "+1234567890" }
- *               businessName: { type: string, example: "Updated Business Name" }
- *               businessCRNumber: { type: string, example: CR789012 }
- *               CRDocuments: { type: string, example: "/uploads/new-cr.pdf" }
- *               businessType: { type: string, example: "Wholesale" }
- *               businessDescription: { type: string, example: "Updated business description" }
- *               country: { type: string, example: "Canada" }
+ *               name: 
+ *                 type: string
+ *                 example: John Updated
+ *               email: 
+ *                 type: string
+ *                 example: newemail@example.com
+ *               address: 
+ *                 type: string
+ *                 example: "456 New Street, City"
+ *               phone: 
+ *                 type: string
+ *                 example: "+1234567890"
+ *               profileImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: User profile image (JPEG, PNG, WebP, GIF - Max 10MB)
+ *               storeBanner:
+ *                 type: string
+ *                 format: binary
+ *                 description: Store banner image (JPEG, PNG, WebP, GIF - Max 10MB)
+ *               currency:
+ *                 type: string
+ *                 example: USD
+ *                 description: Preferred currency for transactions
+ *               holdingTime:
+ *                 type: number
+ *                 example: 48
+ *                 description: Order holding time in hours
+ *               categories:
+ *                 type: string
+ *                 example: '["Electronics", "Clothing", "Books"]'
+ *                 description: Array of product categories (send as JSON string)
+ *               language:
+ *                 type: string
+ *                 example: en
+ *                 description: Preferred language
+ *               businessName: 
+ *                 type: string
+ *                 example: "Updated Business Name"
+ *               businessCRNumber: 
+ *                 type: string
+ *                 example: CR789012
+ *               CRDocuments: 
+ *                 type: string
+ *                 example: "/uploads/new-cr.pdf"
+ *               businessType: 
+ *                 type: string
+ *                 example: "Wholesale"
+ *               businessDescription: 
+ *                 type: string
+ *                 example: "Updated business description"
+ *               country: 
+ *                 type: string
+ *                 example: "Canada"
  *               productCategory: 
- *                 type: array
- *                 items: 
- *                   type: string
- *                   enum: [Analgesics, Antibiotics, Cardiovascular Medications, Antidiabetic Medications, Central Nervous System, All]
- *                 example: ["Antibiotics", "Analgesics"]
+ *                 type: string
+ *                 example: '["Antibiotics", "Analgesics"]'
+ *                 description: Medical product categories (send as JSON string)
  *               shippingLocation:
- *                 type: array
- *                 items:
- *                   type: string
- *                   enum: ["Local within city state", "National within country", "International"]
- *                 example: ["National within country", "International"]
- *               storeDescription: { type: string, example: "Premium medical supplies online" }
+ *                 type: string
+ *                 example: '["National within country", "International"]'
+ *                 description: Shipping locations (send as JSON string)
+ *               storeDescription: 
+ *                 type: string
+ *                 example: "Premium medical supplies online"
  *               paymentMethod: 
  *                 type: string
  *                 enum: ["Bank Account", "Paypal", "Stripe"]
  *                 example: "Paypal"
- *               bankAccountHolderName: { type: string, example: "John Doe" }
- *               bankAccountNumber: { type: string, example: "87654321" }
- *               bankRoughingNumber: { type: string, example: "987654321" }
- *               taxId: { type: string, example: "TAX67890" }
- *               isPrivacyPolicyAccepted: { type: boolean, example: true }
- *               vendorSignature: { type: string, example: "John Doe Signature" }
- *               vendorContract: { type: string, example: "/uploads/updated_contract.pdf" }
- *               isSellerPolicyAccepted: { type: boolean, example: true }
- *               orderNotification: { type: string, example: "email" }
- *               promotionNotification: { type: string, example: "sms" }
- *               communicationAlert: { type: string, example: "push" }
- *               newReviewsNotification: { type: string, example: "email" }
+ *               bankAccountHolderName: 
+ *                 type: string
+ *                 example: "John Doe"
+ *               bankAccountNumber: 
+ *                 type: string
+ *                 example: "87654321"
+ *               bankRoughingNumber: 
+ *                 type: string
+ *                 example: "987654321"
+ *               taxId: 
+ *                 type: string
+ *                 example: "TAX67890"
+ *               isPrivacyPolicyAccepted: 
+ *                 type: boolean
+ *                 example: true
+ *               vendorSignature: 
+ *                 type: string
+ *                 example: "John Doe Signature"
+ *               vendorContract: 
+ *                 type: string
+ *                 example: "/uploads/updated_contract.pdf"
+ *               isSellerPolicyAccepted: 
+ *                 type: boolean
+ *                 example: true
+ *               orderNotification: 
+ *                 type: string
+ *                 example: "email"
+ *               promotionNotification: 
+ *                 type: string
+ *                 example: "sms"
+ *               communicationAlert: 
+ *                 type: string
+ *                 example: "push"
+ *               newReviewsNotification: 
+ *                 type: string
+ *                 example: "email"
  *     responses:
  *       200:
  *         description: Profile updated successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
  */
-router.patch("/profile", verifyToken, userController.updateUser);
+router.patch(
+  "/profile", 
+  verifyToken, 
+  multerUpload.fields([
+    { name: "profileImage", maxCount: 1 },
+    { name: "storeBanner", maxCount: 1 }
+  ]),
+  userController.updateUser
+);
 
 /**
  * @swagger

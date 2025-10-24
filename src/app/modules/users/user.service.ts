@@ -1,6 +1,8 @@
 import { UserModel } from "./user.model";
 import { IUser } from "./user.interface";
 import jwt from "jsonwebtoken";
+import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
+import fs from "fs";
 
 interface TokenPair {
   accessToken: string;
@@ -87,17 +89,73 @@ export class UserService {
     return user;
   }
 
-  async updateUser(userId: string, payload: Partial<IUser>): Promise<IUser | null> {
-    // Prevent role or sensitive changes via this method
-    delete payload.role;
-    delete payload.isVerified;
-    const updatedUser = await UserModel.findByIdAndUpdate(userId, payload, {
-      new: true,
-      runValidators: true,
-    });
+  async updateUser(
+    userId: string, 
+    payload: Partial<IUser>,
+    files?: {
+      profileImage?: Express.Multer.File[];
+      storeBanner?: Express.Multer.File[];
+    }
+  ): Promise<IUser | null> {
+    try {
+      // Prevent role or sensitive changes via this method
+      delete payload.role;
+      delete payload.isVerified;
 
-    if (!updatedUser) throw new Error("User not found");
-    return updatedUser;
+      // Handle profile image upload
+      if (files?.profileImage && files.profileImage.length > 0) {
+        const profileImageUrl = await uploadToCloudinary(
+          files.profileImage[0].path,
+          "users/profiles"
+        );
+        payload.profileImage = profileImageUrl;
+      }
+
+      // Handle store banner upload
+      if (files?.storeBanner && files.storeBanner.length > 0) {
+        const storeBannerUrl = await uploadToCloudinary(
+          files.storeBanner[0].path,
+          "users/store-banners"
+        );
+        payload.storeBanner = storeBannerUrl;
+      }
+
+      // Parse categories if it's a string (from form-data)
+      if (payload.categories && typeof payload.categories === 'string') {
+        try {
+          payload.categories = JSON.parse(payload.categories as string);
+        } catch (e) {
+          // If it's not JSON, treat it as a single category
+          payload.categories = [payload.categories as unknown as string];
+        }
+      }
+
+      // Validate holdingTime if provided
+      if (payload.holdingTime !== undefined) {
+        const holdingTime = Number(payload.holdingTime);
+        if (isNaN(holdingTime) || holdingTime < 0) {
+          throw new Error("Invalid holding time value");
+        }
+        payload.holdingTime = holdingTime;
+      }
+
+      const updatedUser = await UserModel.findByIdAndUpdate(userId, payload, {
+        new: true,
+        runValidators: true,
+      });
+
+      if (!updatedUser) throw new Error("User not found");
+      return updatedUser;
+    } catch (error) {
+      // Clean up uploaded files if update fails
+      if (files?.profileImage?.[0]?.path && fs.existsSync(files.profileImage[0].path)) {
+        fs.unlinkSync(files.profileImage[0].path);
+      }
+      if (files?.storeBanner?.[0]?.path && fs.existsSync(files.storeBanner[0].path)) {
+        fs.unlinkSync(files.storeBanner[0].path);
+      }
+      throw error;
+    }
   }
 
   async changePassword(
@@ -134,7 +192,6 @@ export class UserService {
     await UserModel.findByIdAndDelete(userId);
   }
 
-  // ================== TOKEN HELPERS ==================
   private generateAccessToken(id: string, role: string): string {
     const secret = process.env.JWT_SECRET || "secretkey";
     return jwt.sign({ id, role }, secret, { expiresIn: "15m" }); // 15 minutes

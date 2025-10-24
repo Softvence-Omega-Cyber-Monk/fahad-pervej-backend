@@ -1,7 +1,6 @@
 import { Schema, model } from "mongoose";
 import bcrypt from "bcryptjs";
 import { IUser, PaymentMethod, ProductCategory } from "./user.interface";
-import { string } from "zod";
 
 const userSchema = new Schema<IUser>(
   {
@@ -52,7 +51,11 @@ const userSchema = new Schema<IUser>(
     communicationAlert: {type: String, default: "Communication Alerts"},
     newReviewsNotification: {type: String, default: "New Reviews"},
     phone: { type: String },
-    language: {type: String, default: "English"}
+    language: {type: String, default: "English"},
+    currency: {type: String},
+    holdingTime: {type: Number},
+    categories: {type: [String]},
+    storeBanner: {type: String}
   },
   {
     timestamps: true,
