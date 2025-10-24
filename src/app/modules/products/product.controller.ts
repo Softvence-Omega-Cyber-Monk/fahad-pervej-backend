@@ -45,7 +45,7 @@ class ProductController {
   // ✅ Create multiple products (bulk)
   async createBulkProducts(req: Request, res: Response) {
     try {
-      const userId = (req as any).user._id;
+      const userId = (req as any).user.id;
       const products = req.body.map((p: any) => ({ ...p, userId }));
       const inserted = await productService.createBulkProducts(products);
       res.status(201).json({ success: true, data: inserted });
