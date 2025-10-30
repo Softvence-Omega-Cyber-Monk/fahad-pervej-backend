@@ -5,7 +5,7 @@ import { ICreateOrder, IUpdateOrderStatus, OrderStatus, PaymentStatus } from './
 // Extend Express Request to include user
 interface AuthRequest extends Request {
   user?: {
-    _id: string;
+    id: string;
     email: string;
     role: string;
   };
@@ -18,9 +18,12 @@ export class OrderController {
     this.service = new OrderService();
   }
 
-  createOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  createOrder = async (req: Request, res: Response): Promise<void> => {
     try {
-      const userId = req.user?._id;
+      // ✅ Fixed: Changed from user?._id to user?.id (consistent with product controller)
+      const userId = (req as any).user?.id;
+
+      console.log("=====userid=========", userId)
 
       if (!userId) {
         res.status(401).json({
@@ -31,19 +34,6 @@ export class OrderController {
       }
 
       const data: ICreateOrder = req.body;
-
-      // Validate required fields
-      if (!data.fullName || !data.mobileNumber || !data.country || !data.addressSpecific || 
-          !data.city || !data.state || !data.zipCode || !data.products || 
-          data.products.length === 0 || !data.totalPrice || !data.shippingFee || 
-          !data.tax || !data.estimatedDeliveryDate || !data.shippingMethodId || !data.paymentId) {
-        res.status(400).json({
-          success: false,
-          error: 'All required fields must be provided'
-        });
-        return;
-      }
-
       const order = await this.service.createOrder(userId, data);
 
       res.status(201).json({
@@ -162,8 +152,10 @@ export class OrderController {
 
   getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const userId = req.user?._id;
-
+      // ✅ Already correct - using user.id
+      const userId = (req as any).user?.id;
+      console.log("From controller", userId)
+      
       if (!userId) {
         res.status(401).json({
           success: false,
@@ -344,7 +336,8 @@ export class OrderController {
 
   getMyOrderStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const userId = req.user?._id;
+      // ✅ Already correct - using user?.id
+      const userId = req.user?.id;
 
       if (!userId) {
         res.status(401).json({

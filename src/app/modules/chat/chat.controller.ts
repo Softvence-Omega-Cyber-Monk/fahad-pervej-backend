@@ -47,7 +47,7 @@ class ChatController {
 
   /**
    * Get all conversations for a user
-   * GET /api/chat/conversations?userId=xxx&userType=customer&page=1&limit=20
+   * GET /api/chat/conversations?userId=xxx&userType=CUSTOMER&page=1&limit=20
    */
   async getConversations(req: Request, res: Response) {
     try {
@@ -61,17 +61,17 @@ class ChatController {
         });
       }
 
-      if (userType !== 'customer' && userType !== 'vendor') {
+      if (userType !== 'CUSTOMER' && userType !== 'VENDOR') {
         return res.status(400).json({
           success: false,
-          message: 'User Type must be either customer or vendor'
+          message: 'User Type must be either CUSTOMER or VENDOR'
         });
       }
 
       // Get conversations from service
       const result = await chatService.getConversations({
         userId: userId as string,
-        userType: userType as 'customer' | 'vendor',
+        userType: userType as 'CUSTOMER' | 'VENDOR',
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined
       });
@@ -140,10 +140,10 @@ class ChatController {
       const { userType } = req.body;
 
       // Validate required fields
-      if (!userType || (userType !== 'customer' && userType !== 'vendor')) {
+      if (!userType || (userType !== 'CUSTOMER' && userType !== 'VENDOR')) {
         return res.status(400).json({
           success: false,
-          message: 'Valid User Type (customer/vendor) is required'
+          message: 'Valid User Type (CUSTOMER/VENDOR) is required'
         });
       }
 
@@ -169,8 +169,133 @@ class ChatController {
   }
 
   /**
+   * Send a message in a conversation
+   * POST /api/chat/conversations/:conversationId/messages
+   */
+  async sendMessage(req: Request, res: Response) {
+    try {
+      const { conversationId } = req.params;
+      const { senderId, senderType, message } = req.body;
+
+      // Validate required fields
+      if (!senderId || !senderType || !message) {
+        return res.status(400).json({
+          success: false,
+          message: 'Sender ID, Sender Type, and Message are required'
+        });
+      }
+
+      if (senderType !== 'CUSTOMER' && senderType !== 'VENDOR') {
+        return res.status(400).json({
+          success: false,
+          message: 'Sender Type must be either CUSTOMER or VENDOR'
+        });
+      }
+
+      // Send message
+      const conversation = await chatService.sendMessage({
+        conversationId,
+        senderId,
+        senderType,
+        message
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Message sent successfully',
+        data: conversation
+      });
+
+    } catch (error) {
+      console.error('Send message error:', error);
+      return res.status(500).json({
+        success: false,
+        message: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Delete a conversation
+   * DELETE /api/chat/conversations/:conversationId?userId=xxx
+   */
+  async deleteConversation(req: Request, res: Response) {
+    try {
+      const { conversationId } = req.params;
+      const { userId } = req.query;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required'
+        });
+      }
+
+      const result = await chatService.deleteConversation(
+        conversationId,
+        userId as string
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: result.message
+      });
+
+    } catch (error) {
+      console.error('Delete conversation error:', error);
+      return res.status(500).json({
+        success: false,
+        message: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Search conversations
+   * GET /api/chat/search?userId=xxx&userType=CUSTOMER&query=hello
+   */
+  async searchConversations(req: Request, res: Response) {
+    try {
+      const { userId, userType, query } = req.query;
+
+      if (!userId || !userType || !query) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID, User Type, and Search Query are required'
+        });
+      }
+
+      if (userType !== 'CUSTOMER' && userType !== 'VENDOR') {
+        return res.status(400).json({
+          success: false,
+          message: 'User Type must be either CUSTOMER or VENDOR'
+        });
+      }
+
+      const conversations = await chatService.searchConversations(
+        userId as string,
+        userType as 'CUSTOMER' | 'VENDOR',
+        query as string
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Search completed successfully',
+        data: conversations
+      });
+
+    } catch (error) {
+      console.error('Search conversations error:', error);
+      return res.status(500).json({
+        success: false,
+        message: (error as Error).message
+      });
+    }
+  }
+
+  /**
    * Get unread message count
-   * GET /api/chat/unread?userId=xxx&userType=customer
+   * GET /api/chat/unread?userId=xxx&userType=CUSTOMER
    */
   async getUnreadCount(req: Request, res: Response) {
     try {
@@ -184,17 +309,17 @@ class ChatController {
         });
       }
 
-      if (userType !== 'customer' && userType !== 'vendor') {
+      if (userType !== 'CUSTOMER' && userType !== 'VENDOR') {
         return res.status(400).json({
           success: false,
-          message: 'User Type must be either customer or vendor'
+          message: 'User Type must be either CUSTOMER or VENDOR'
         });
       }
 
       // Get unread count
       const unreadCount = await chatService.getUnreadCount(
         userId as string,
-        userType as 'customer' | 'vendor'
+        userType as 'CUSTOMER' | 'VENDOR'
       );
 
       return res.status(200).json({

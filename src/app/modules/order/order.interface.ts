@@ -1,7 +1,8 @@
 import { Document, Types } from 'mongoose';
 
 export enum OrderStatus {
-  ORDER_PLACED = 'Order Placed',
+  PENDING = 'Pending',
+  CONFIRMED = 'Confirmed',
   PREPARING_FOR_SHIPMENT = 'Preparing for Shipment',
   OUT_FOR_DELIVERY = 'Out for Delivery',
   DELIVERED = 'Delivered',
@@ -43,12 +44,12 @@ export interface IOrder extends Document {
   tax: number;
   grandTotal: number;
   promoCode: string | null;
-  estimatedDeliveryDate: Date;
+  estimatedDeliveryDate: Date | null;
   actualDeliveryDate: Date | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   shippingMethodId: Types.ObjectId;
-  paymentId: Types.ObjectId;
+  transactionId: string;
   orderNotes: string | null;
   trackingNumber: string | null;
   statusHistory: Array<{
@@ -71,16 +72,15 @@ export interface ICreateOrder {
   products: Array<{
     productId: string;
     quantity: number;
-    price: number;
   }>;
+  shippingMethodId: string;
+  transactionId: string;
   totalPrice: number;
   shippingFee: number;
   discount?: number;
   tax: number;
   promoCode?: string;
-  estimatedDeliveryDate: Date;
-  shippingMethodId: string;
-  paymentId: string;
+  estimatedDeliveryDate?: Date;
   orderNotes?: string;
 }
 
@@ -101,7 +101,8 @@ export interface IOrderFilters {
 
 export interface IOrderStats {
   totalOrders: number;
-  orderPlaced: number;
+  pending: number;
+  confirmed: number;
   preparingForShipment: number;
   outForDelivery: number;
   delivered: number;

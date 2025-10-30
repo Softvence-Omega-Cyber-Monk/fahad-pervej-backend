@@ -1,4 +1,5 @@
 import Order from './order.model';
+import mongoose from 'mongoose';
 import {
   IOrder,
   ICreateOrder,
@@ -12,47 +13,106 @@ import {
 
 export class OrderService {
   async createOrder(userId: string, data: ICreateOrder): Promise<IOrder> {
-    // Calculate product totals
-    const products = data.products.map(product => ({
-      productId: product.productId,
-      quantity: product.quantity,
-      price: product.price,
-      total: product.quantity * product.price
-    }));
+    try {
+      // Fetch products from database to populate product details
+      const Product = mongoose.model('Product');
+      const productIds = data.products.map(p => new mongoose.Types.ObjectId(p.productId));
+      const products = await Product.find({ _id: { $in: productIds } })
+        .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate');
 
-    // Calculate grand total
-    const discount = data.discount || 0;
-    const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
+      if (products.length !== data.products.length) {
+        throw new Error('One or more products not found');
+      }
 
-    const orderData = {
-      userId,
-      shippingAddress: {
-        fullName: data.fullName,
-        mobileNumber: data.mobileNumber,
-        country: data.country,
-        addressSpecific: data.addressSpecific,
-        city: data.city,
-        state: data.state,
-        zipCode: data.zipCode
-      },
-      products,
-      totalPrice: data.totalPrice,
-      shippingFee: data.shippingFee,
-      discount,
-      tax: data.tax,
-      grandTotal,
-      promoCode: data.promoCode || null,
-      estimatedDeliveryDate: data.estimatedDeliveryDate,
-      shippingMethodId: data.shippingMethodId,
-      paymentId: data.paymentId,
-      orderNotes: data.orderNotes || null
-    };
+      // Create a map for quick price lookup
+      const productMap = new Map();
+      products.forEach((product: any) => {
+        let currentPrice = product.pricePerUnit;
 
-    const order = new Order(orderData);
-    await order.save();
-    
-    return order;
+        if (
+          product.specialPrice &&
+          product.specialPriceStartingDate &&
+          product.specialPriceEndingDate
+        ) {
+          const now = new Date();
+          const startDate = new Date(product.specialPriceStartingDate);
+          const endDate = new Date(product.specialPriceEndingDate);
+
+          if (now >= startDate && now <= endDate) {
+            currentPrice = product.specialPrice;
+          }
+        }
+
+        productMap.set(product._id.toString(), currentPrice);
+      });
+
+      // Map products with prices and totals
+      const orderProducts = data.products.map(item => {
+        const price = productMap.get(item.productId);
+        if (price === undefined) {
+          throw new Error(`Price not found for product ${item.productId}`);
+        }
+
+        return {
+          productId: new mongoose.Types.ObjectId(item.productId),
+          quantity: item.quantity,
+          price: price,
+          total: item.quantity * price
+        };
+      });
+
+      // Use values from frontend
+      const discount = data.discount || 0;
+      const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
+
+      // Generate a unique order number (always uppercase)
+      const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      // Set estimated delivery date (7 days from now if not provided)
+      const estimatedDeliveryDate = data.estimatedDeliveryDate
+        ? new Date(data.estimatedDeliveryDate)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const orderData = {
+        orderNumber, // ✅ FIX: Added required field
+        userId: new mongoose.Types.ObjectId(userId),
+        shippingAddress: {
+          fullName: data.fullName,
+          mobileNumber: data.mobileNumber,
+          country: data.country,
+          addressSpecific: data.addressSpecific,
+          city: data.city,
+          state: data.state,
+          zipCode: data.zipCode
+        },
+        products: orderProducts,
+        totalPrice: data.totalPrice,
+        shippingFee: data.shippingFee,
+        discount: discount,
+        tax: data.tax,
+        grandTotal: grandTotal,
+        promoCode: data.promoCode || null,
+        estimatedDeliveryDate,
+        shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
+        transactionId: data.transactionId,
+        orderNotes: data.orderNotes || null,
+        status: OrderStatus.PENDING,
+        paymentStatus: PaymentStatus.PENDING
+      };
+
+      const order = new Order(orderData);
+      await order.save();
+
+      // Populate product details
+      await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
+
+      return order;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
   }
+
 
   async getAllOrders(filters: IOrderFilters = {}): Promise<IOrder[]> {
     const query: any = {};
@@ -84,10 +144,9 @@ export class OrderService {
     }
 
     const orders = await Order.find(query)
-      .populate('userId', 'name email')
-      .populate('products.productId', 'name image price')
-      .populate('shippingMethodId', 'name price estimatedDays')
-      .populate('paymentId', 'method status transactionId')
+      .populate('userId', 'name email phone profileImage role businessName')
+      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('shippingMethodId', 'name code contactEmail contactPhone trackingUrl')
       .sort({ createdAt: -1 });
 
     return orders;
@@ -95,34 +154,33 @@ export class OrderService {
 
   async getOrderById(orderId: string): Promise<IOrder | null> {
     const order = await Order.findById(orderId)
-      .populate('userId', 'name email phone')
-      .populate('products.productId', 'name image price description')
-      .populate('shippingMethodId', 'name price estimatedDays')
-      .populate('paymentId', 'method status transactionId amount');
+      .populate('userId', 'name email phone profileImage address role businessName country')
+      .populate('products.productId', 'productName mainImageUrl sideImageUrl pricePerUnit specialPrice productDescription stock')
+      .populate('shippingMethodId', 'name code description contactEmail contactPhone trackingUrl logo');
 
     return order;
   }
 
   async getOrderByOrderNumber(orderNumber: string): Promise<IOrder | null> {
     const order = await Order.findOne({ orderNumber: orderNumber.toUpperCase() })
-      .populate('userId', 'name email phone')
-      .populate('products.productId', 'name image price')
-      .populate('shippingMethodId', 'name price estimatedDays')
-      .populate('paymentId', 'method status transactionId');
+      .populate('userId', 'name email phone profileImage')
+      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('shippingMethodId', 'name code trackingUrl');
 
     return order;
   }
 
   async getUserOrders(userId: string, filters?: { status?: OrderStatus }): Promise<IOrder[]> {
-    const query: any = { userId };
+    const query: any = { userId: new mongoose.Types.ObjectId(userId) };
 
     if (filters?.status) {
       query.status = filters.status;
     }
 
     const orders = await Order.find(query)
-      .populate('products.productId', 'name image price')
-      .populate('shippingMethodId', 'name price')
+      .populate('userId', 'name email phone profileImage')
+      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('shippingMethodId', 'name code trackingUrl')
       .sort({ createdAt: -1 });
 
     return orders;
@@ -181,6 +239,10 @@ export class OrderService {
       throw new Error('Order is already cancelled');
     }
 
+    if (order.status === OrderStatus.OUT_FOR_DELIVERY) {
+      throw new Error('Cannot cancel order that is out for delivery');
+    }
+
     // Update status to cancelled
     order.status = OrderStatus.CANCELLED;
     order.statusHistory.push({
@@ -228,14 +290,15 @@ export class OrderService {
     }
 
     const totalOrders = await Order.countDocuments(query);
-    const orderPlaced = await Order.countDocuments({ ...query, status: OrderStatus.ORDER_PLACED });
-    const preparingForShipment = await Order.countDocuments({ 
-      ...query, 
-      status: OrderStatus.PREPARING_FOR_SHIPMENT 
+    const pending = await Order.countDocuments({ ...query, status: OrderStatus.PENDING });
+    const confirmed = await Order.countDocuments({ ...query, status: OrderStatus.CONFIRMED });
+    const preparingForShipment = await Order.countDocuments({
+      ...query,
+      status: OrderStatus.PREPARING_FOR_SHIPMENT
     });
-    const outForDelivery = await Order.countDocuments({ 
-      ...query, 
-      status: OrderStatus.OUT_FOR_DELIVERY 
+    const outForDelivery = await Order.countDocuments({
+      ...query,
+      status: OrderStatus.OUT_FOR_DELIVERY
     });
     const delivered = await Order.countDocuments({ ...query, status: OrderStatus.DELIVERED });
     const cancelled = await Order.countDocuments({ ...query, status: OrderStatus.CANCELLED });
@@ -258,7 +321,8 @@ export class OrderService {
 
     return {
       totalOrders,
-      orderPlaced,
+      pending,
+      confirmed,
       preparingForShipment,
       outForDelivery,
       delivered,
@@ -269,18 +333,27 @@ export class OrderService {
   }
 
   async getUserOrderStats(userId: string): Promise<IUserOrderStats> {
-    const totalOrders = await Order.countDocuments({ userId });
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    const totalOrders = await Order.countDocuments({ userId: userObjectId });
     const pendingOrders = await Order.countDocuments({
-      userId,
-      status: { $in: [OrderStatus.ORDER_PLACED, OrderStatus.PREPARING_FOR_SHIPMENT, OrderStatus.OUT_FOR_DELIVERY] }
+      userId: userObjectId,
+      status: {
+        $in: [
+          OrderStatus.PENDING,
+          OrderStatus.CONFIRMED,
+          OrderStatus.PREPARING_FOR_SHIPMENT,
+          OrderStatus.OUT_FOR_DELIVERY
+        ]
+      }
     });
     const completedOrders = await Order.countDocuments({
-      userId,
+      userId: userObjectId,
       status: OrderStatus.DELIVERED
     });
 
     const spentResult = await Order.aggregate([
-      { $match: { userId, status: { $ne: OrderStatus.CANCELLED } } },
+      { $match: { userId: userObjectId, status: { $ne: OrderStatus.CANCELLED } } },
       {
         $group: {
           _id: null,
@@ -301,8 +374,9 @@ export class OrderService {
 
   async getRecentOrders(limit: number = 10): Promise<IOrder[]> {
     const orders = await Order.find()
-      .populate('userId', 'name email')
-      .populate('products.productId', 'name image')
+      .populate('userId', 'name email phone profileImage businessName')
+      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('shippingMethodId', 'name code trackingUrl')
       .sort({ createdAt: -1 })
       .limit(limit);
 
@@ -311,7 +385,11 @@ export class OrderService {
 
   private validateStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus): void {
     const validTransitions: { [key: string]: OrderStatus[] } = {
-      [OrderStatus.ORDER_PLACED]: [
+      [OrderStatus.PENDING]: [
+        OrderStatus.CONFIRMED,
+        OrderStatus.CANCELLED
+      ],
+      [OrderStatus.CONFIRMED]: [
         OrderStatus.PREPARING_FOR_SHIPMENT,
         OrderStatus.CANCELLED
       ],

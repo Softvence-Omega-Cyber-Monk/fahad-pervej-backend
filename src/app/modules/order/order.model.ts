@@ -146,7 +146,7 @@ const orderSchema = new Schema<IOrder>(
     },
     estimatedDeliveryDate: {
       type: Date,
-      required: [true, 'Estimated delivery date is required']
+      default: null
     },
     actualDeliveryDate: {
       type: Date,
@@ -158,7 +158,7 @@ const orderSchema = new Schema<IOrder>(
         values: Object.values(OrderStatus),
         message: '{VALUE} is not a valid order status'
       },
-      default: OrderStatus.ORDER_PLACED,
+      default: OrderStatus.PENDING,
       index: true
     },
     paymentStatus: {
@@ -172,13 +172,14 @@ const orderSchema = new Schema<IOrder>(
     },
     shippingMethodId: {
       type: Schema.Types.ObjectId,
-      ref: 'ShippingMethod',
+      ref: 'ShipmentCompany',
       required: [true, 'Shipping method is required']
     },
-    paymentId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Payment',
-      required: [true, 'Payment ID is required']
+    transactionId: {
+      type: String,
+      required: [true, 'Transaction ID is required'],
+      trim: true,
+      index: true
     },
     orderNotes: {
       type: String,
@@ -204,6 +205,7 @@ const orderSchema = new Schema<IOrder>(
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ orderNumber: 1 });
+orderSchema.index({ transactionId: 1 });
 orderSchema.index({ 'shippingAddress.mobileNumber': 1 });
 orderSchema.index({ createdAt: -1 });
 
@@ -237,7 +239,8 @@ orderSchema.virtual('isDelivered').get(function() {
 
 // Virtual for checking if order can be cancelled
 orderSchema.virtual('canBeCancelled').get(function() {
-  return this.status === OrderStatus.ORDER_PLACED || 
+  return this.status === OrderStatus.PENDING || 
+         this.status === OrderStatus.CONFIRMED ||
          this.status === OrderStatus.PREPARING_FOR_SHIPMENT;
 });
 

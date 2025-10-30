@@ -11,10 +11,10 @@ class ProductService {
         return inserted
     }
     async getProductById(id: string): Promise<IProduct | null> {
-        return ProductModel.findById(id).exec()
+        return ProductModel.findById(id).populate("userId", "name email role").exec()
     }
     async getAllProducts(): Promise<IProduct[]> {
-        return ProductModel.find().exec()
+        return ProductModel.find().populate("userId", "name email role").exec()
     }
     async updateProduct(id: string, data: Partial<IProduct>): Promise<IProduct | null> {
         return ProductModel.findByIdAndUpdate(id, data, { new: true }).exec()

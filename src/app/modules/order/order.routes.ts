@@ -1,35 +1,17 @@
 import { Router } from 'express';
 import { OrderController } from './order.controller';
 import { ValidationMiddleware } from '../../middlewares/validation.middleware';
+import { verifyToken } from '../../middlewares/auth';
+import { authorizeRoles } from '../../middlewares/roleAuth';
 
 const router = Router();
 const controller = new OrderController();
 
 /**
  * @swagger
- * tags:
- *   name: Orders
- *   description: Order management and tracking
- */
-
-/**
- * @swagger
  * components:
  *   schemas:
- *     OrderProduct:
- *       type: object
- *       properties:
- *         productId:
- *           type: string
- *           example: 507f1f77bcf86cd799439011
- *         quantity:
- *           type: number
- *           example: 2
- *         price:
- *           type: number
- *           example: 29.99
- *     
- *     ShippingAddress:
+ *     CreateOrder:
  *       type: object
  *       required:
  *         - fullName
@@ -39,6 +21,12 @@ const controller = new OrderController();
  *         - city
  *         - state
  *         - zipCode
+ *         - products
+ *         - shippingMethodId
+ *         - transactionId
+ *         - totalPrice
+ *         - shippingFee
+ *         - tax
  *       properties:
  *         fullName:
  *           type: string
@@ -61,19 +49,6 @@ const controller = new OrderController();
  *         zipCode:
  *           type: string
  *           example: 10001
- *     
- *     Order:
- *       type: object
- *       properties:
- *         _id:
- *           type: string
- *         userId:
- *           type: string
- *         orderNumber:
- *           type: string
- *           example: ORD-ABC123-XYZ
- *         shippingAddress:
- *           $ref: '#/components/schemas/ShippingAddress'
  *         products:
  *           type: array
  *           items:
@@ -81,123 +56,38 @@ const controller = new OrderController();
  *             properties:
  *               productId:
  *                 type: string
+ *                 example: 672304d53d6b4eee48e94e0e
  *               quantity:
- *                 type: number
- *               price:
- *                 type: number
- *               total:
- *                 type: number
- *         totalPrice:
- *           type: number
- *         shippingFee:
- *           type: number
- *         discount:
- *           type: number
- *         tax:
- *           type: number
- *         grandTotal:
- *           type: number
- *         promoCode:
- *           type: string
- *           nullable: true
- *         estimatedDeliveryDate:
- *           type: string
- *           format: date-time
- *         actualDeliveryDate:
- *           type: string
- *           format: date-time
- *           nullable: true
- *         status:
- *           type: string
- *           enum: [Order Placed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
- *         paymentStatus:
- *           type: string
- *           enum: [pending, completed, failed, refunded]
+ *                 type: integer
+ *                 example: 2
  *         shippingMethodId:
  *           type: string
- *         paymentId:
+ *           example: 67230a1c3d6b4eee48e94e20
+ *         transactionId:
  *           type: string
- *         orderNotes:
- *           type: string
- *           nullable: true
- *         trackingNumber:
- *           type: string
- *           nullable: true
- *         statusHistory:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               status:
- *                 type: string
- *               timestamp:
- *                 type: string
- *                 format: date-time
- *               note:
- *                 type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *     
- *     CreateOrder:
- *       type: object
- *       required:
- *         - fullName
- *         - mobileNumber
- *         - country
- *         - addressSpecific
- *         - city
- *         - state
- *         - zipCode
- *         - products
- *         - totalPrice
- *         - shippingFee
- *         - tax
- *         - estimatedDeliveryDate
- *         - shippingMethodId
- *         - paymentId
- *       properties:
- *         fullName:
- *           type: string
- *         mobileNumber:
- *           type: string
- *         country:
- *           type: string
- *         addressSpecific:
- *           type: string
- *         city:
- *           type: string
- *         state:
- *           type: string
- *         zipCode:
- *           type: string
- *         products:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/OrderProduct'
+ *           example: TXN-1234567890
  *         totalPrice:
  *           type: number
+ *           example: 99.99
  *         shippingFee:
  *           type: number
+ *           example: 10.00
  *         discount:
  *           type: number
+ *           example: 5.00
  *         tax:
  *           type: number
+ *           example: 8.50
  *         promoCode:
  *           type: string
+ *           example: SAVE10
  *         estimatedDeliveryDate:
  *           type: string
- *           format: date-time
- *         shippingMethodId:
- *           type: string
- *         paymentId:
- *           type: string
+ *           format: date
+ *           example: 2025-11-10
  *         orderNotes:
  *           type: string
- *     
+ *           example: Please ring the doorbell
  *     UpdateOrderStatus:
  *       type: object
  *       required:
@@ -205,31 +95,21 @@ const controller = new OrderController();
  *       properties:
  *         status:
  *           type: string
- *           enum: [Order Placed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
+ *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
+ *           example: CONFIRMED
  *         note:
  *           type: string
+ *           example: Order confirmed and being processed
  *         trackingNumber:
  *           type: string
- *     
- *     OrderStats:
- *       type: object
- *       properties:
- *         totalOrders:
- *           type: number
- *         orderPlaced:
- *           type: number
- *         preparingForShipment:
- *           type: number
- *         outForDelivery:
- *           type: number
- *         delivered:
- *           type: number
- *         cancelled:
- *           type: number
- *         totalRevenue:
- *           type: number
- *         averageOrderValue:
- *           type: number
+ *           example: TRACK123456789
+ */
+
+/**
+ * @swagger
+ * tags:
+ *   name: Orders
+ *   description: Manage customer orders, payments, and statuses
  */
 
 /**
@@ -237,7 +117,6 @@ const controller = new OrderController();
  * /orders:
  *   post:
  *     summary: Create a new order
- *     description: Create a new order with shipping details and products
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -250,41 +129,18 @@ const controller = new OrderController();
  *     responses:
  *       201:
  *         description: Order created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     orderId:
- *                       type: string
- *                     orderNumber:
- *                       type: string
- *                     status:
- *                       type: string
- *                     grandTotal:
- *                       type: number
- *                     estimatedDeliveryDate:
- *                       type: string
  *       400:
  *         description: Validation error
  *       401:
- *         description: User not authenticated
+ *         description: Not authenticated
  */
-router.post('/', controller.createOrder);
+router.post('/', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR'), controller.createOrder);
 
 /**
  * @swagger
  * /orders/my-orders:
  *   get:
- *     summary: Get my orders
- *     description: Get all orders for the authenticated user
+ *     summary: Get logged-in user's orders
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -293,65 +149,36 @@ router.post('/', controller.createOrder);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [Order Placed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
+ *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
  *     responses:
  *       200:
- *         description: Orders retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 count:
- *                   type: number
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Order'
+ *         description: List of user's orders
+ *       401:
+ *         description: Unauthorized
  */
-router.get('/my-orders', controller.getMyOrders);
+router.get('/my-orders', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR'), controller.getMyOrders);
 
 /**
  * @swagger
  * /orders/my-stats:
  *   get:
- *     summary: Get my order statistics
- *     description: Get order statistics for the authenticated user
+ *     summary: Get statistics of logged-in user's orders
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Statistics retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     totalOrders:
- *                       type: number
- *                     totalSpent:
- *                       type: number
- *                     pendingOrders:
- *                       type: number
- *                     completedOrders:
- *                       type: number
+ *       401:
+ *         description: Unauthorized
  */
-router.get('/my-stats', controller.getMyOrderStats);
+router.get('/my-stats', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR'), controller.getMyOrderStats);
 
 /**
  * @swagger
  * /orders/track/{orderNumber}:
  *   get:
- *     summary: Track order by order number
- *     description: Get order details and tracking information by order number
+ *     summary: Track an order by its order number
  *     tags: [Orders]
  *     parameters:
  *       - in: path
@@ -359,10 +186,10 @@ router.get('/my-stats', controller.getMyOrderStats);
  *         required: true
  *         schema:
  *           type: string
- *         example: ORD-ABC123-XYZ
+ *         example: ORD-ABC1234
  *     responses:
  *       200:
- *         description: Order found
+ *         description: Order tracking information retrieved successfully
  *       404:
  *         description: Order not found
  */
@@ -373,7 +200,6 @@ router.get('/track/:orderNumber', controller.getOrderByOrderNumber);
  * /orders/{id}/cancel:
  *   put:
  *     summary: Cancel an order
- *     description: Cancel an order (only if not yet delivered)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -391,20 +217,22 @@ router.get('/track/:orderNumber', controller.getOrderByOrderNumber);
  *             properties:
  *               reason:
  *                 type: string
+ *                 example: Changed my mind
  *     responses:
  *       200:
  *         description: Order cancelled successfully
  *       400:
  *         description: Cannot cancel order
+ *       404:
+ *         description: Order not found
  */
-router.put('/:id/cancel', ValidationMiddleware.validateObjectId, controller.cancelOrder);
+router.put('/:id/cancel', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR'), ValidationMiddleware.validateObjectId, controller.cancelOrder);
 
 /**
  * @swagger
  * /orders/admin:
  *   get:
- *     summary: Get all orders (Admin)
- *     description: Get all orders with optional filters
+ *     summary: Get all orders (Admin/Vendor)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -413,8 +241,14 @@ router.put('/:id/cancel', ValidationMiddleware.validateObjectId, controller.canc
  *         name: status
  *         schema:
  *           type: string
+ *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
  *       - in: query
  *         name: paymentStatus
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, COMPLETED, FAILED, REFUNDED]
+ *       - in: query
+ *         name: orderNumber
  *         schema:
  *           type: string
  *       - in: query
@@ -427,22 +261,19 @@ router.put('/:id/cancel', ValidationMiddleware.validateObjectId, controller.canc
  *         schema:
  *           type: string
  *           format: date
- *       - in: query
- *         name: orderNumber
- *         schema:
- *           type: string
  *     responses:
  *       200:
  *         description: Orders retrieved successfully
+ *       401:
+ *         description: Unauthorized
  */
-router.get('/admin', controller.getAllOrders);
+router.get('/admin', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), controller.getAllOrders);
 
 /**
  * @swagger
  * /orders/admin/stats:
  *   get:
- *     summary: Get order statistics (Admin)
- *     description: Get comprehensive order statistics
+ *     summary: Get admin/vendor order statistics
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -460,24 +291,16 @@ router.get('/admin', controller.getAllOrders);
  *     responses:
  *       200:
  *         description: Statistics retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/OrderStats'
+ *       401:
+ *         description: Unauthorized
  */
-router.get('/admin/stats', controller.getOrderStats);
+router.get('/admin/stats', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), controller.getOrderStats);
 
 /**
  * @swagger
  * /orders/admin/recent:
  *   get:
- *     summary: Get recent orders (Admin)
- *     description: Get the most recent orders
+ *     summary: Get recent orders (Admin/Vendor)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -485,20 +308,21 @@ router.get('/admin/stats', controller.getOrderStats);
  *       - in: query
  *         name: limit
  *         schema:
- *           type: number
+ *           type: integer
  *           default: 10
  *     responses:
  *       200:
  *         description: Recent orders retrieved successfully
+ *       401:
+ *         description: Unauthorized
  */
-router.get('/admin/recent', controller.getRecentOrders);
+router.get('/admin/recent', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), controller.getRecentOrders);
 
 /**
  * @swagger
  * /orders/admin/{id}:
  *   get:
- *     summary: Get order by ID (Admin)
- *     description: Get detailed information about a specific order
+ *     summary: Get an order by ID (Admin/Vendor)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -510,18 +334,17 @@ router.get('/admin/recent', controller.getRecentOrders);
  *           type: string
  *     responses:
  *       200:
- *         description: Order found
+ *         description: Order retrieved successfully
  *       404:
  *         description: Order not found
  */
-router.get('/admin/:id', ValidationMiddleware.validateObjectId, controller.getOrderById);
+router.get('/admin/:id', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), ValidationMiddleware.validateObjectId, controller.getOrderById);
 
 /**
  * @swagger
  * /orders/admin/{id}/status:
  *   put:
- *     summary: Update order status (Admin)
- *     description: Update the status of an order
+ *     summary: Update order status (Admin/Vendor)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -539,18 +362,19 @@ router.get('/admin/:id', ValidationMiddleware.validateObjectId, controller.getOr
  *             $ref: '#/components/schemas/UpdateOrderStatus'
  *     responses:
  *       200:
- *         description: Status updated successfully
+ *         description: Order status updated successfully
  *       400:
  *         description: Invalid status transition
+ *       404:
+ *         description: Order not found
  */
-router.put('/admin/:id/status', ValidationMiddleware.validateObjectId, controller.updateOrderStatus);
+router.put('/admin/:id/status', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), ValidationMiddleware.validateObjectId, controller.updateOrderStatus);
 
 /**
  * @swagger
  * /orders/admin/{id}/payment-status:
  *   put:
- *     summary: Update payment status (Admin)
- *     description: Update the payment status of an order
+ *     summary: Update payment status (Admin/Vendor)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -571,19 +395,22 @@ router.put('/admin/:id/status', ValidationMiddleware.validateObjectId, controlle
  *             properties:
  *               paymentStatus:
  *                 type: string
- *                 enum: [pending, completed, failed, refunded]
+ *                 enum: [PENDING, COMPLETED, FAILED, REFUNDED]
  *     responses:
  *       200:
  *         description: Payment status updated successfully
+ *       400:
+ *         description: Invalid payment status
+ *       404:
+ *         description: Order not found
  */
-router.put('/admin/:id/payment-status', ValidationMiddleware.validateObjectId, controller.updatePaymentStatus);
+router.put('/admin/:id/payment-status', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), ValidationMiddleware.validateObjectId, controller.updatePaymentStatus);
 
 /**
  * @swagger
  * /orders/admin/{id}:
  *   delete:
- *     summary: Delete order (Admin)
- *     description: Permanently delete an order
+ *     summary: Delete an order (Admin only)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -598,7 +425,9 @@ router.put('/admin/:id/payment-status', ValidationMiddleware.validateObjectId, c
  *         description: Order deleted successfully
  *       404:
  *         description: Order not found
+ *       401:
+ *         description: Unauthorized
  */
-router.delete('/admin/:id', ValidationMiddleware.validateObjectId, controller.deleteOrder);
+router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMiddleware.validateObjectId, controller.deleteOrder);
 
 export const OrderRoute = router;

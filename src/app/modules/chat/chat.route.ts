@@ -146,6 +146,42 @@ router.put("/conversations/:conversationId/read", chatController.markAsRead.bind
 
 /**
  * @swagger
+ * /chat/conversations/{conversationId}/messages:
+ *   post:
+ *     summary: Send a message in a conversation
+ *     tags: [Chat]
+ */
+router.post(
+    "/conversations/:conversationId/messages",
+    chatController.sendMessage.bind(chatController)
+);
+
+/**
+ * @swagger
+ * /chat/conversations/{conversationId}:
+ *   delete:
+ *     summary: Delete a conversation
+ *     tags: [Chat]
+ */
+router.delete(
+    "/conversations/:conversationId",
+    chatController.deleteConversation.bind(chatController)
+);
+
+/**
+ * @swagger
+ * /chat/search:
+ *   get:
+ *     summary: Search conversations
+ *     tags: [Chat]
+ */
+router.get(
+    "/search",
+    chatController.searchConversations.bind(chatController)
+);
+
+/**
+ * @swagger
  * /chat/unread:
  *   get:
  *     summary: Get total unread message count for a user
