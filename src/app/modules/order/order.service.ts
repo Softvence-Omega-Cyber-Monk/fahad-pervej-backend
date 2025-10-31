@@ -145,8 +145,8 @@ export class OrderService {
     }
 
     const orders = await Order.find(query)
-      .populate('userId', 'name email phone profileImage role businessName')
-      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('userId', 'name email phone address')
+      .populate('products.productId')
       .populate('shippingMethodId', 'name code contactEmail contactPhone trackingUrl')
       .sort({ createdAt: -1 });
 
@@ -155,8 +155,8 @@ export class OrderService {
 
   async getOrderById(orderId: string): Promise<IOrder | null> {
     const order = await Order.findById(orderId)
-      .populate('userId', 'name email phone profileImage address role businessName country')
-      .populate('products.productId', 'productName mainImageUrl sideImageUrl pricePerUnit specialPrice productDescription stock')
+      .populate('userId', 'name email phone address')
+      .populate('products.productId')
       .populate('shippingMethodId', 'name code description contactEmail contactPhone trackingUrl logo');
 
     return order;
@@ -164,8 +164,8 @@ export class OrderService {
 
   async getOrderByOrderNumber(orderNumber: string): Promise<IOrder | null> {
     const order = await Order.findOne({ orderNumber: orderNumber.toUpperCase() })
-      .populate('userId', 'name email phone profileImage')
-      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('userId', 'name email phone')
+      .populate('products.productId')
       .populate('shippingMethodId', 'name code trackingUrl');
 
     return order;
@@ -179,8 +179,8 @@ export class OrderService {
     }
 
     const orders = await Order.find(query)
-      .populate('userId', 'name email phone profileImage')
-      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('userId', 'name email phone')
+      .populate('products.productId')
       .populate('shippingMethodId', 'name code trackingUrl')
       .sort({ createdAt: -1 });
 
@@ -420,8 +420,8 @@ export class OrderService {
 
   async getRecentOrders(limit: number = 10): Promise<IOrder[]> {
     const orders = await Order.find()
-      .populate('userId', 'name email phone profileImage businessName')
-      .populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice')
+      .populate('userId', 'name email phone')
+      .populate('products.productId')
       .populate('shippingMethodId', 'name code trackingUrl')
       .sort({ createdAt: -1 })
       .limit(limit);
