@@ -404,7 +404,7 @@ router.put('/admin/:id/status', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), 
  *       404:
  *         description: Order not found
  */
-router.put('/admin/:id/payment-status', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), ValidationMiddleware.validateObjectId, controller.updatePaymentStatus);
+router.put('/admin/:id/payment-status', controller.updatePaymentStatus);
 
 /**
  * @swagger
@@ -428,6 +428,84 @@ router.put('/admin/:id/payment-status', verifyToken, authorizeRoles('ADMIN', 'VE
  *       401:
  *         description: Unauthorized
  */
+router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMiddleware.validateObjectId, controller.deleteOrder);
+
+// NEW: Route for updating payment with payment history
+/**
+ * @swagger
+ * /orders/admin/{id}/payment-history:
+ *   put:
+ *     summary: Update payment status with payment history
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentStatus
+ *               - paymentHistory
+ *             properties:
+ *               paymentStatus:
+ *                 type: string
+ *                 enum: [pending, completed, failed, refunded]
+ *               paymentHistory:
+ *                 type: object
+ *                 required:
+ *                   - paymentGateway
+ *                   - gatewayTransactionId
+ *                   - amount
+ *                   - currency
+ *                 properties:
+ *                   paymentGateway:
+ *                     type: string
+ *                     example: Mastercard AFS
+ *                   gatewayTransactionId:
+ *                     type: string
+ *                     example: ORDER-1234567890-ABC
+ *                   sessionId:
+ *                     type: string
+ *                     example: SESSION123456
+ *                   resultIndicator:
+ *                     type: string
+ *                   successIndicator:
+ *                     type: string
+ *                   amount:
+ *                     type: number
+ *                     example: 150.50
+ *                   currency:
+ *                     type: string
+ *                     example: USD
+ *                   paymentMethod:
+ *                     type: string
+ *                     example: Credit Card
+ *                   cardType:
+ *                     type: string
+ *                     example: Visa
+ *                   lastFourDigits:
+ *                     type: string
+ *                     example: 1234
+ *                   gatewayResponse:
+ *                     type: object
+ *     responses:
+ *       200:
+ *         description: Payment updated successfully with history
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Order not found
+ */
+router.put('/admin/:id/payment-history', ValidationMiddleware.validateObjectId, controller.updatePaymentWithHistory);
+
 router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMiddleware.validateObjectId, controller.deleteOrder);
 
 export const OrderRoute = router;

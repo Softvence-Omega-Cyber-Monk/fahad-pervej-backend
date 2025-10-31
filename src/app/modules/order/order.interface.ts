@@ -33,6 +33,29 @@ export interface IShippingAddress {
   zipCode: string;
 }
 
+// NEW: Payment history interface
+export interface IPaymentHistory {
+  paymentGateway: string; // e.g., 'Mastercard AFS'
+  gatewayTransactionId: string; // Transaction ID from payment gateway
+  sessionId?: string; // Payment session ID
+  resultIndicator?: string; // Payment result indicator
+  successIndicator?: string; // Success indicator for verification
+  amount: number;
+  currency: string;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: string; // e.g., 'Credit Card', 'Debit Card'
+  cardType?: string; // e.g., 'Visa', 'Mastercard'
+  lastFourDigits?: string; // Last 4 digits of card
+  paymentDate: Date;
+  gatewayResponse?: any; // Full gateway response (optional)
+  refundDetails?: {
+    refundedAmount: number;
+    refundDate: Date;
+    refundTransactionId: string;
+    reason?: string;
+  };
+}
+
 export interface IOrder extends Document {
   userId: Types.ObjectId;
   orderNumber: string;
@@ -49,7 +72,7 @@ export interface IOrder extends Document {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   shippingMethodId: Types.ObjectId;
-  transactionId: string;
+  transactionId?: string;
   orderNotes: string | null;
   trackingNumber: string | null;
   statusHistory: Array<{
@@ -57,6 +80,7 @@ export interface IOrder extends Document {
     timestamp: Date;
     note?: string;
   }>;
+  paymentHistory: IPaymentHistory[]; // NEW: Payment history array
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,6 +112,24 @@ export interface IUpdateOrderStatus {
   status: OrderStatus;
   note?: string;
   trackingNumber?: string;
+}
+
+// NEW: Interface for updating payment with history
+export interface IUpdatePaymentWithHistory {
+  paymentStatus: PaymentStatus;
+  paymentHistory: {
+    paymentGateway: string;
+    gatewayTransactionId: string;
+    sessionId?: string;
+    resultIndicator?: string;
+    successIndicator?: string;
+    amount: number;
+    currency: string;
+    paymentMethod?: string;
+    cardType?: string;
+    lastFourDigits?: string;
+    gatewayResponse?: any;
+  };
 }
 
 export interface IOrderFilters {

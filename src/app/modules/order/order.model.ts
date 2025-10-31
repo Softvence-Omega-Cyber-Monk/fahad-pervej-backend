@@ -82,6 +82,73 @@ const statusHistorySchema = new Schema({
   }
 }, { _id: false });
 
+// NEW: Payment history schema
+const paymentHistorySchema = new Schema({
+  paymentGateway: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  gatewayTransactionId: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  sessionId: {
+    type: String,
+    trim: true
+  },
+  resultIndicator: {
+    type: String,
+    trim: true
+  },
+  successIndicator: {
+    type: String,
+    trim: true
+  },
+  amount: {
+    type: Number,
+    required: true,
+    min: [0, 'Amount cannot be negative']
+  },
+  currency: {
+    type: String,
+    required: true,
+    uppercase: true,
+    default: 'USD'
+  },
+  paymentStatus: {
+    type: String,
+    enum: Object.values(PaymentStatus),
+    required: true
+  },
+  paymentMethod: {
+    type: String,
+    trim: true
+  },
+  cardType: {
+    type: String,
+    trim: true
+  },
+  lastFourDigits: {
+    type: String,
+    trim: true
+  },
+  paymentDate: {
+    type: Date,
+    default: Date.now
+  },
+  gatewayResponse: {
+    type: Schema.Types.Mixed
+  },
+  refundDetails: {
+    refundedAmount: Number,
+    refundDate: Date,
+    refundTransactionId: String,
+    reason: String
+  }
+}, { _id: false });
+
 const orderSchema = new Schema<IOrder>(
   {
     userId: {
@@ -177,7 +244,6 @@ const orderSchema = new Schema<IOrder>(
     },
     transactionId: {
       type: String,
-      required: [true, 'Transaction ID is required'],
       trim: true,
       index: true
     },
@@ -194,6 +260,10 @@ const orderSchema = new Schema<IOrder>(
     statusHistory: {
       type: [statusHistorySchema],
       default: []
+    },
+    paymentHistory: {
+      type: [paymentHistorySchema],
+      default: []
     }
   },
   {
@@ -208,6 +278,7 @@ orderSchema.index({ orderNumber: 1 });
 orderSchema.index({ transactionId: 1 });
 orderSchema.index({ 'shippingAddress.mobileNumber': 1 });
 orderSchema.index({ createdAt: -1 });
+orderSchema.index({ 'paymentHistory.gatewayTransactionId': 1 });
 
 // Generate unique order number before saving
 orderSchema.pre('save', async function(next) {

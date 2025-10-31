@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { OrderService } from './order.service';
-import { ICreateOrder, IUpdateOrderStatus, OrderStatus, PaymentStatus } from './order.interface';
+import { ICreateOrder, IUpdateOrderStatus, IUpdatePaymentWithHistory, OrderStatus, PaymentStatus } from './order.interface';
 
 // Extend Express Request to include user
 interface AuthRequest extends Request {
@@ -20,7 +20,6 @@ export class OrderController {
 
   createOrder = async (req: Request, res: Response): Promise<void> => {
     try {
-      // ✅ Fixed: Changed from user?._id to user?.id (consistent with product controller)
       const userId = (req as any).user?.id;
 
       console.log("=====userid=========", userId)
@@ -152,7 +151,6 @@ export class OrderController {
 
   getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      // ✅ Already correct - using user.id
       const userId = (req as any).user?.id;
       console.log("From controller", userId)
       
@@ -279,6 +277,42 @@ export class OrderController {
     }
   };
 
+  // NEW: Update payment with payment history
+  updatePaymentWithHistory = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data: IUpdatePaymentWithHistory = req.body;
+
+      if (!data.paymentStatus || !data.paymentHistory) {
+        res.status(400).json({
+          success: false,
+          error: 'Payment status and payment history are required'
+        });
+        return;
+      }
+
+      const order = await this.service.updatePaymentWithHistory(id, data);
+
+      res.status(200).json({
+        success: true,
+        message: 'Payment updated successfully',
+        data: {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          paymentStatus: order.paymentStatus,
+          status: order.status,
+          paymentHistory: order.paymentHistory
+        }
+      });
+    } catch (error) {
+      console.error('Error updating payment with history:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update payment'
+      });
+    }
+  };
+
   deleteOrder = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -336,7 +370,6 @@ export class OrderController {
 
   getMyOrderStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      // ✅ Already correct - using user?.id
       const userId = req.user?.id;
 
       if (!userId) {

@@ -7,6 +7,7 @@ import {
   IOrderFilters,
   IOrderStats,
   IUserOrderStats,
+  IUpdatePaymentWithHistory,
   OrderStatus,
   PaymentStatus
 } from './order.interface';
@@ -74,7 +75,7 @@ export class OrderService {
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const orderData = {
-        orderNumber, // ✅ FIX: Added required field
+        orderNumber,
         userId: new mongoose.Types.ObjectId(userId),
         shippingAddress: {
           fullName: data.fullName,
@@ -97,7 +98,8 @@ export class OrderService {
         transactionId: data.transactionId,
         orderNotes: data.orderNotes || null,
         status: OrderStatus.PENDING,
-        paymentStatus: PaymentStatus.PENDING
+        paymentStatus: PaymentStatus.PENDING,
+        paymentHistory: [] // Initialize empty payment history
       };
 
       const order = new Order(orderData);
@@ -112,7 +114,6 @@ export class OrderService {
       throw error;
     }
   }
-
 
   async getAllOrders(filters: IOrderFilters = {}): Promise<IOrder[]> {
     const query: any = {};
@@ -268,6 +269,51 @@ export class OrderService {
     order.paymentStatus = paymentStatus;
     await order.save();
 
+    return order;
+  }
+
+  // NEW: Update payment status with payment history
+  async updatePaymentWithHistory(
+    orderId: string,
+    data: IUpdatePaymentWithHistory
+  ): Promise<IOrder> {
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    // Update payment status
+    order.paymentStatus = data.paymentStatus;
+
+    // Add payment history entry
+    order.paymentHistory.push({
+      paymentGateway: data.paymentHistory.paymentGateway,
+      gatewayTransactionId: data.paymentHistory.gatewayTransactionId,
+      sessionId: data.paymentHistory.sessionId,
+      resultIndicator: data.paymentHistory.resultIndicator,
+      successIndicator: data.paymentHistory.successIndicator,
+      amount: data.paymentHistory.amount,
+      currency: data.paymentHistory.currency,
+      paymentStatus: data.paymentStatus,
+      paymentMethod: data.paymentHistory.paymentMethod,
+      cardType: data.paymentHistory.cardType,
+      lastFourDigits: data.paymentHistory.lastFourDigits,
+      paymentDate: new Date(),
+      gatewayResponse: data.paymentHistory.gatewayResponse
+    });
+
+    // If payment is successful, update order status to Confirmed
+    if (data.paymentStatus === PaymentStatus.COMPLETED && order.status === OrderStatus.PENDING) {
+      order.status = OrderStatus.CONFIRMED;
+      order.statusHistory.push({
+        status: OrderStatus.CONFIRMED,
+        timestamp: new Date(),
+        note: 'Payment completed - Order confirmed'
+      });
+    }
+
+    await order.save();
     return order;
   }
 
