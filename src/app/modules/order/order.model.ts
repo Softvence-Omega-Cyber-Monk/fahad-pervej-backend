@@ -196,7 +196,6 @@ const orderSchema = new Schema<IOrder>(
     },
     tax: {
       type: Number,
-      required: [true, 'Tax is required'],
       default: 0,
       min: [0, 'Tax cannot be negative']
     },

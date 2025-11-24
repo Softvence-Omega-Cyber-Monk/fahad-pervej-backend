@@ -1,4 +1,5 @@
 import Order from './order.model';
+import { payoutService } from '../payout/payout.service';
 import mongoose from 'mongoose';
 import {
   IOrder,
@@ -11,13 +12,18 @@ import {
   OrderStatus,
   PaymentStatus
 } from './order.interface';
+import { walletService } from '../wallet/wallet.service';
+
 
 export class OrderService {
-  async createOrder(userId: string, data: ICreateOrder): Promise<IOrder> {
+  async createOrder(userId: string, data: any): Promise<IOrder> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
       // Fetch products from database to populate product details
       const Product = mongoose.model('Product');
-      const productIds = data.products.map(p => new mongoose.Types.ObjectId(p.productId));
+      const productIds = data.products.map((p: { productId: number; }) => new mongoose.Types.ObjectId(p.productId));
       const products = await Product.find({ _id: { $in: productIds } })
         .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate');
 
@@ -48,7 +54,7 @@ export class OrderService {
       });
 
       // Map products with prices and totals
-      const orderProducts = data.products.map(item => {
+      const orderProducts = data.products.map((item: { productId: number; quantity: number; }) => {
         const price = productMap.get(item.productId);
         if (price === undefined) {
           throw new Error(`Price not found for product ${item.productId}`);
@@ -74,6 +80,31 @@ export class OrderService {
         ? new Date(data.estimatedDeliveryDate)
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+      // Handle wallet payment
+      let paymentStatus = PaymentStatus.PENDING;
+      let orderStatus = OrderStatus.PENDING;
+      let transactionId = data.transactionId;
+
+      if (data.paymentMethod === 'WALLET') {
+        // Check if user has sufficient balance
+        const hasSufficient = await walletService.hasSufficientBalance(userId, grandTotal);
+
+        if (!hasSufficient) {
+          throw new Error('Insufficient wallet balance');
+        }
+
+        // Debit wallet
+        await walletService.debitWallet(userId, {
+          amount: grandTotal,
+          orderId: orderNumber,
+          description: `Payment for order ${orderNumber}`
+        });
+
+        paymentStatus = PaymentStatus.COMPLETED;
+        orderStatus = OrderStatus.CONFIRMED;
+        transactionId = `WALLET-${Date.now()}`;
+      }
+
       const orderData = {
         orderNumber,
         userId: new mongoose.Types.ObjectId(userId),
@@ -95,23 +126,36 @@ export class OrderService {
         promoCode: data.promoCode || null,
         estimatedDeliveryDate,
         shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
-        transactionId: data.transactionId,
+        transactionId: transactionId,
         orderNotes: data.orderNotes || null,
-        status: OrderStatus.PENDING,
-        paymentStatus: PaymentStatus.PENDING,
-        paymentHistory: [] // Initialize empty payment history
+        status: orderStatus,
+        paymentStatus: paymentStatus,
+        paymentHistory: data.paymentMethod === 'WALLET' ? [{
+          paymentGateway: 'Wallet System',
+          gatewayTransactionId: transactionId,
+          amount: grandTotal,
+          currency: 'BHD',
+          paymentStatus: PaymentStatus.COMPLETED,
+          paymentMethod: 'Wallet',
+          paymentDate: new Date()
+        }] : []
       };
 
       const order = new Order(orderData);
-      await order.save();
+      await order.save({ session });
+
+      await session.commitTransaction();
 
       // Populate product details
       await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
 
       return order;
     } catch (error) {
+      await session.abortTransaction();
       console.error('Error creating order:', error);
       throw error;
+    } finally {
+      session.endSession();
     }
   }
 
@@ -191,7 +235,8 @@ export class OrderService {
     orderId: string,
     data: IUpdateOrderStatus
   ): Promise<IOrder> {
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId)
+      .populate('products.productId', 'vendorId');
 
     if (!order) {
       throw new Error('Order not found');
@@ -218,6 +263,32 @@ export class OrderService {
     // Set actual delivery date if status is delivered
     if (data.status === OrderStatus.DELIVERED && !order.actualDeliveryDate) {
       order.actualDeliveryDate = new Date();
+
+      // ===== NEW: Create vendor earning when order is delivered =====
+      try {
+        // Get vendor ID from the first product (assuming single-vendor orders)
+        // If you have multi-vendor orders, you'll need to loop through products
+        const firstProduct = order.products[0] as any;
+
+        if (firstProduct?.productId?.vendorId) {
+          const vendorId = firstProduct.productId.vendorId.toString();
+
+          // Create vendor earning (90% to vendor, 10% platform commission)
+          await payoutService.createVendorEarning(
+            vendorId,
+            order._id.toString(),
+            order.orderNumber,
+            order.grandTotal
+          );
+
+          console.log(`Vendor earning created for order ${order.orderNumber}`);
+        }
+      } catch (error) {
+        console.error('Error creating vendor earning:', error);
+        // Don't throw error to prevent order status update failure
+        // Log for admin review
+      }
+      // ===== END NEW CODE =====
     }
 
     await order.save();
@@ -225,35 +296,59 @@ export class OrderService {
   }
 
   async cancelOrder(orderId: string, reason?: string): Promise<IOrder> {
-    const order = await Order.findById(orderId);
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!order) {
-      throw new Error('Order not found');
+    try {
+      const order = await Order.findById(orderId).session(session);
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      // Check if order can be cancelled
+      if (order.status === OrderStatus.DELIVERED) {
+        throw new Error('Cannot cancel a delivered order');
+      }
+
+      if (order.status === OrderStatus.CANCELLED) {
+        throw new Error('Order is already cancelled');
+      }
+
+      if (order.status === OrderStatus.OUT_FOR_DELIVERY) {
+        throw new Error('Cannot cancel order that is out for delivery');
+      }
+
+      // If order was paid via wallet, refund to wallet
+      if (order.paymentStatus === PaymentStatus.COMPLETED &&
+        order.paymentHistory.some(p => p.paymentGateway === 'Wallet System')) {
+        await walletService.refundToWallet(
+          order.userId.toString(),
+          order.grandTotal,
+          order.id.toString(),
+          `Refund for cancelled order ${order.orderNumber}`
+        );
+      }
+
+      // Update status to cancelled
+      order.status = OrderStatus.CANCELLED;
+      order.paymentStatus = PaymentStatus.REFUNDED;
+      order.statusHistory.push({
+        status: OrderStatus.CANCELLED,
+        timestamp: new Date(),
+        note: reason || 'Order cancelled by user'
+      });
+
+      await order.save({ session });
+      await session.commitTransaction();
+
+      return order;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
-
-    // Check if order can be cancelled
-    if (order.status === OrderStatus.DELIVERED) {
-      throw new Error('Cannot cancel a delivered order');
-    }
-
-    if (order.status === OrderStatus.CANCELLED) {
-      throw new Error('Order is already cancelled');
-    }
-
-    if (order.status === OrderStatus.OUT_FOR_DELIVERY) {
-      throw new Error('Cannot cancel order that is out for delivery');
-    }
-
-    // Update status to cancelled
-    order.status = OrderStatus.CANCELLED;
-    order.statusHistory.push({
-      status: OrderStatus.CANCELLED,
-      timestamp: new Date(),
-      note: reason || 'Order cancelled by user'
-    });
-
-    await order.save();
-    return order;
   }
 
   async updatePaymentStatus(
@@ -272,7 +367,6 @@ export class OrderService {
     return order;
   }
 
-  // NEW: Update payment status with payment history
   async updatePaymentWithHistory(
     orderId: string,
     data: IUpdatePaymentWithHistory

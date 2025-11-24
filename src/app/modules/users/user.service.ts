@@ -79,6 +79,26 @@ export class UserService {
     return UserModel.find({ role: "VENDOR" });
   }
 
+  async getPendingVendors(): Promise<IUser[]> {
+    return UserModel.find({ role: "VENDOR", isVerified: false });
+  }
+
+  // Add this method to the UserService class, after getPendingVendors method
+
+  async getPendingVendorById(vendorId: string): Promise<IUser | null> {
+    const vendor = await UserModel.findOne({
+      _id: vendorId,
+      role: "VENDOR",
+      isVerified: false
+    });
+
+    if (!vendor) {
+      throw new Error("Pending vendor not found");
+    }
+
+    return vendor;
+  }
+
   async getAllCustomers(): Promise<IUser[]> {
     return UserModel.find({ role: "CUSTOMER" });
   }
@@ -90,7 +110,7 @@ export class UserService {
   }
 
   async updateUser(
-    userId: string, 
+    userId: string,
     payload: Partial<IUser>,
     files?: {
       profileImage?: Express.Multer.File[];

@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { OrderService } from './order.service';
 import { ICreateOrder, IUpdateOrderStatus, IUpdatePaymentWithHistory, OrderStatus, PaymentStatus } from './order.interface';
 
-// Extend Express Request to include user
 interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -21,8 +20,6 @@ export class OrderController {
   createOrder = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).user?.id;
-
-      console.log("=====userid=========", userId)
 
       if (!userId) {
         res.status(401).json({
@@ -55,31 +52,101 @@ export class OrderController {
     }
   };
 
+  /**
+   * NEW: Complete payment for an order
+   * This endpoint marks payment as complete and records payment details
+   */
+  completeOrderPayment = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { orderId, transactionId, paymentGateway, paymentMethod, amount, currency, cardType, lastFourDigits, gatewayResponse } = req.body;
+
+      if (!orderId || !transactionId || !paymentGateway || !amount || !currency) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required payment parameters (orderId, transactionId, paymentGateway, amount, currency)'
+        });
+        return;
+      }
+
+      // Get the order from database
+      const order = await this.service.getOrderById(orderId);
+
+      if (!order) {
+        res.status(404).json({
+          success: false,
+          error: 'Order not found'
+        });
+        return;
+      }
+
+      // Check if already paid
+      if (order.paymentStatus === PaymentStatus.COMPLETED) {
+        res.status(400).json({
+          success: false,
+          error: 'Order is already paid'
+        });
+        return;
+      }
+
+      // Prepare payment history
+      const paymentHistory = {
+        paymentGateway: paymentGateway,
+        gatewayTransactionId: transactionId,
+        amount: parseFloat(amount),
+        currency: currency,
+        paymentMethod: paymentMethod || 'Credit Card',
+        cardType: cardType,
+        lastFourDigits: lastFourDigits,
+        gatewayResponse: gatewayResponse
+      };
+
+      // Update order with payment details
+      const updatedOrder = await this.service.updatePaymentWithHistory(
+        orderId,
+        {
+          paymentStatus: PaymentStatus.COMPLETED,
+          paymentHistory
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Payment completed successfully',
+        data: {
+          orderId: updatedOrder._id,
+          orderNumber: updatedOrder.orderNumber,
+          status: updatedOrder.status,
+          paymentStatus: updatedOrder.paymentStatus,
+          grandTotal: updatedOrder.grandTotal,
+          transactionId: transactionId,
+          paymentDetails: {
+            transactionId: paymentHistory.gatewayTransactionId,
+            amount: paymentHistory.amount,
+            currency: paymentHistory.currency,
+            gateway: paymentHistory.paymentGateway
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error completing payment:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to complete payment'
+      });
+    }
+  };
+
   getAllOrders = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { status, paymentStatus, startDate, endDate, orderNumber } = req.query;
 
       const filters: any = {};
 
-      if (status) {
-        filters.status = status as OrderStatus;
-      }
-
-      if (paymentStatus) {
-        filters.paymentStatus = paymentStatus as PaymentStatus;
-      }
-
-      if (startDate) {
-        filters.startDate = new Date(startDate as string);
-      }
-
-      if (endDate) {
-        filters.endDate = new Date(endDate as string);
-      }
-
-      if (orderNumber) {
-        filters.orderNumber = orderNumber as string;
-      }
+      if (status) filters.status = status as OrderStatus;
+      if (paymentStatus) filters.paymentStatus = paymentStatus as PaymentStatus;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (orderNumber) filters.orderNumber = orderNumber as string;
 
       const orders = await this.service.getAllOrders(filters);
 
@@ -152,7 +219,6 @@ export class OrderController {
   getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const userId = (req as any).user?.id;
-      console.log("From controller", userId)
       
       if (!userId) {
         res.status(401).json({
@@ -165,9 +231,7 @@ export class OrderController {
       const { status } = req.query;
       const filters: any = {};
 
-      if (status) {
-        filters.status = status as OrderStatus;
-      }
+      if (status) filters.status = status as OrderStatus;
 
       const orders = await this.service.getUserOrders(userId, filters);
 
@@ -277,7 +341,6 @@ export class OrderController {
     }
   };
 
-  // NEW: Update payment with payment history
   updatePaymentWithHistory = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -345,13 +408,8 @@ export class OrderController {
 
       const filters: any = {};
 
-      if (startDate) {
-        filters.startDate = new Date(startDate as string);
-      }
-
-      if (endDate) {
-        filters.endDate = new Date(endDate as string);
-      }
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
 
       const stats = await this.service.getOrderStats(filters);
 

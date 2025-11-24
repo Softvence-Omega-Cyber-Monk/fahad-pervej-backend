@@ -108,7 +108,7 @@ router.post("/register/vendor", userController.registerVendor);
  *               - email
  *               - password
  *             properties:
- *               email: { type: string, example: user@example.com }
+ *               email: { type: string, example: admin@gmail.com }
  *               password: { type: string, example: secret123 }
  *     responses:
  *       200:
@@ -367,6 +367,90 @@ router.put("/change-password", verifyToken, userController.changePassword);
  */
 router.patch("/deactivate/:id", verifyToken, authorizeRoles("ADMIN", "VENDOR", "CUSTOMER"), userController.deactivateUser);
 
+// Add this route after the /vendors route (around line 367)
+
+/**
+ * @swagger
+ * /users/vendors/pending:
+ *   get:
+ *     summary: Get all pending/unapproved vendors (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all pending vendors
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get("/vendors/pending", verifyToken, authorizeRoles("ADMIN"), userController.getPendingVendors);
+
+// Add this route after the /vendors/pending route
+
+/**
+ * @swagger
+ * /users/vendors/pending/{id}:
+ *   get:
+ *     summary: Get a single pending/unapproved vendor by ID (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Vendor ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Pending vendor details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   description: Vendor details
+ *       404:
+ *         description: Pending vendor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Pending vendor not found"
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get("/vendors/pending/:id", verifyToken, authorizeRoles("ADMIN"), userController.getPendingVendorById);
+
 /**
  * @swagger
  * /users/vendors:
@@ -380,6 +464,8 @@ router.patch("/deactivate/:id", verifyToken, authorizeRoles("ADMIN", "VENDOR", "
  *         description: List of all vendors
  */
 router.get("/vendors", verifyToken, authorizeRoles("ADMIN"), userController.getAllVendors);
+
+
 
 /**
  * @swagger

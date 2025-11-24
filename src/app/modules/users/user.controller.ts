@@ -18,7 +18,7 @@ export class UserController {
       const { user, accessToken, refreshToken } = await userService.registerCustomer(req.body);
 
       // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
+      res.cookie("accessToken", accessToken, getCookieOptions(60 * 24 * 60 * 1000)); // 1 days
       res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
 
       res.status(201).json({
@@ -119,6 +119,27 @@ export class UserController {
       res.json({ success: true, data: vendors });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  async getPendingVendors(req: Request, res: Response) {
+    try {
+      const pendingVendors = await userService.getPendingVendors();
+      res.json({ success: true, data: pendingVendors });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // Add this method to the UserController class, after getPendingVendors method
+
+  async getPendingVendorById(req: Request, res: Response) {
+    try {
+      const vendorId = req.params.id;
+      const vendor = await userService.getPendingVendorById(vendorId);
+      res.json({ success: true, data: vendor });
+    } catch (error: any) {
+      res.status(404).json({ success: false, message: error.message });
     }
   }
 

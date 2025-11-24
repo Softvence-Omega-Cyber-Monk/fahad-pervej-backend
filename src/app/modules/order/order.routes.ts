@@ -23,7 +23,6 @@ const controller = new OrderController();
  *         - zipCode
  *         - products
  *         - shippingMethodId
- *         - transactionId
  *         - totalPrice
  *         - shippingFee
  *         - tax
@@ -33,22 +32,22 @@ const controller = new OrderController();
  *           example: John Doe
  *         mobileNumber:
  *           type: string
- *           example: +1234567890
+ *           example: +973-12345678
  *         country:
  *           type: string
- *           example: United States
+ *           example: Bahrain
  *         addressSpecific:
  *           type: string
- *           example: 123 Main Street, Apt 4B
+ *           example: Building 123, Road 456, Block 789
  *         city:
  *           type: string
- *           example: New York
+ *           example: Manama
  *         state:
  *           type: string
- *           example: NY
+ *           example: Capital
  *         zipCode:
  *           type: string
- *           example: 10001
+ *           example: 12345
  *         products:
  *           type: array
  *           items:
@@ -63,31 +62,54 @@ const controller = new OrderController();
  *         shippingMethodId:
  *           type: string
  *           example: 67230a1c3d6b4eee48e94e20
- *         transactionId:
- *           type: string
- *           example: TXN-1234567890
  *         totalPrice:
  *           type: number
- *           example: 99.99
+ *           example: 100.00
  *         shippingFee:
  *           type: number
- *           example: 10.00
+ *           example: 5.00
  *         discount:
  *           type: number
- *           example: 5.00
+ *           example: 0
  *         tax:
  *           type: number
- *           example: 8.50
+ *           example: 5.00
  *         promoCode:
  *           type: string
  *           example: SAVE10
+ *         paymentMethod:
+ *           type: string
+ *           enum: [WALLET, GATEWAY, CASH_ON_DELIVERY]
+ *           example: WALLET
+ *           description: Payment method to use (WALLET for wallet payment, GATEWAY for credit card)
+ *         transactionId:
+ *           type: string
+ *           example: TXN-1234567890
  *         estimatedDeliveryDate:
  *           type: string
  *           format: date
- *           example: 2025-11-10
+ *           example: 2025-11-22
  *         orderNotes:
  *           type: string
  *           example: Please ring the doorbell
+ *     OrderResponse:
+ *       type: object
+ *       properties:
+ *         orderId:
+ *           type: string
+ *         orderNumber:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [Pending, Confirmed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
+ *         paymentStatus:
+ *           type: string
+ *           enum: [pending, completed, failed, refunded]
+ *         grandTotal:
+ *           type: number
+ *         estimatedDeliveryDate:
+ *           type: string
+ *           format: date-time
  *     UpdateOrderStatus:
  *       type: object
  *       required:
@@ -95,21 +117,65 @@ const controller = new OrderController();
  *       properties:
  *         status:
  *           type: string
- *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
- *           example: CONFIRMED
+ *           enum: [Pending, Confirmed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
+ *           example: Confirmed
  *         note:
  *           type: string
  *           example: Order confirmed and being processed
  *         trackingNumber:
  *           type: string
  *           example: TRACK123456789
+ *     CompletePayment:
+ *       type: object
+ *       required:
+ *         - orderId
+ *         - transactionId
+ *         - paymentGateway
+ *         - amount
+ *         - currency
+ *       properties:
+ *         orderId:
+ *           type: string
+ *           description: Database ID of the order
+ *           example: 6723abc123def456
+ *         transactionId:
+ *           type: string
+ *           description: Payment gateway transaction ID
+ *           example: TXN-1234567890
+ *         paymentGateway:
+ *           type: string
+ *           description: Name of the payment gateway used
+ *           example: Stripe
+ *         paymentMethod:
+ *           type: string
+ *           description: Payment method used
+ *           example: Credit Card
+ *         amount:
+ *           type: number
+ *           description: Payment amount
+ *           example: 110.00
+ *         currency:
+ *           type: string
+ *           description: Currency code
+ *           example: BHD
+ *         cardType:
+ *           type: string
+ *           description: Type of card used (optional)
+ *           example: Visa
+ *         lastFourDigits:
+ *           type: string
+ *           description: Last 4 digits of card (optional)
+ *           example: 4242
+ *         gatewayResponse:
+ *           type: object
+ *           description: Raw response from payment gateway (optional)
  */
 
 /**
  * @swagger
  * tags:
  *   name: Orders
- *   description: Manage customer orders, payments, and statuses
+ *   description: Order management including creation, payment processing, tracking, and status updates
  */
 
 /**
@@ -117,6 +183,7 @@ const controller = new OrderController();
  * /orders:
  *   post:
  *     summary: Create a new order
+ *     description: Create a new order with payment method selection. Use paymentMethod WALLET for instant wallet payment or GATEWAY for credit card payment.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -129,8 +196,21 @@ const controller = new OrderController();
  *     responses:
  *       201:
  *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Order created successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/OrderResponse'
  *       400:
- *         description: Validation error
+ *         description: Validation error or insufficient wallet balance
  *       401:
  *         description: Not authenticated
  */
@@ -138,9 +218,72 @@ router.post('/', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR'), con
 
 /**
  * @swagger
+ * /orders/complete-payment:
+ *   post:
+ *     summary: Complete payment for an order
+ *     description: Mark an order's payment as completed and record payment details including transaction ID and payment history. This endpoint should be called after successful payment processing.
+ *     tags: [Orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CompletePayment'
+ *     responses:
+ *       200:
+ *         description: Payment completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Payment completed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                     orderNumber:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       example: Confirmed
+ *                     paymentStatus:
+ *                       type: string
+ *                       example: completed
+ *                     grandTotal:
+ *                       type: number
+ *                     transactionId:
+ *                       type: string
+ *                     paymentDetails:
+ *                       type: object
+ *                       properties:
+ *                         transactionId:
+ *                           type: string
+ *                         amount:
+ *                           type: number
+ *                         currency:
+ *                           type: string
+ *                         gateway:
+ *                           type: string
+ *       400:
+ *         description: Invalid request or order already paid
+ *       404:
+ *         description: Order not found
+ */
+router.post('/complete-payment', controller.completeOrderPayment);
+
+/**
+ * @swagger
  * /orders/my-orders:
  *   get:
  *     summary: Get logged-in user's orders
+ *     description: Retrieve all orders belonging to the authenticated user with optional status filter
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -149,10 +292,27 @@ router.post('/', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR'), con
  *         name: status
  *         schema:
  *           type: string
- *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
+ *           enum: [Pending, Confirmed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
+ *         description: Filter orders by status
+ *         example: Confirmed
  *     responses:
  *       200:
  *         description: List of user's orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
  *       401:
  *         description: Unauthorized
  */
@@ -163,12 +323,36 @@ router.get('/my-orders', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDO
  * /orders/my-stats:
  *   get:
  *     summary: Get statistics of logged-in user's orders
+ *     description: Retrieve comprehensive statistics including total orders, total spent, pending and completed orders
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: integer
+ *                       example: 15
+ *                     totalSpent:
+ *                       type: number
+ *                       example: 1250.50
+ *                     pendingOrders:
+ *                       type: integer
+ *                       example: 3
+ *                     completedOrders:
+ *                       type: integer
+ *                       example: 12
  *       401:
  *         description: Unauthorized
  */
@@ -179,6 +363,7 @@ router.get('/my-stats', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR
  * /orders/track/{orderNumber}:
  *   get:
  *     summary: Track an order by its order number
+ *     description: Public endpoint to track order status using order number. No authentication required.
  *     tags: [Orders]
  *     parameters:
  *       - in: path
@@ -186,10 +371,21 @@ router.get('/my-stats', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VENDOR
  *         required: true
  *         schema:
  *           type: string
- *         example: ORD-ABC1234
+ *         description: Order number to track
+ *         example: ORD-1234567890-ABCD
  *     responses:
  *       200:
  *         description: Order tracking information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
  *       404:
  *         description: Order not found
  */
@@ -200,6 +396,7 @@ router.get('/track/:orderNumber', controller.getOrderByOrderNumber);
  * /orders/{id}/cancel:
  *   put:
  *     summary: Cancel an order
+ *     description: Cancel an existing order. Only orders that are Pending, Confirmed, or Preparing for Shipment can be cancelled. If paid via wallet, amount is automatically refunded.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -209,6 +406,8 @@ router.get('/track/:orderNumber', controller.getOrderByOrderNumber);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Order database ID
+ *         example: 6723abc123def456
  *     requestBody:
  *       content:
  *         application/json:
@@ -221,8 +420,29 @@ router.get('/track/:orderNumber', controller.getOrderByOrderNumber);
  *     responses:
  *       200:
  *         description: Order cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Order cancelled successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                     orderNumber:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       example: Cancelled
  *       400:
- *         description: Cannot cancel order
+ *         description: Cannot cancel order (already delivered or out for delivery)
  *       404:
  *         description: Order not found
  */
@@ -233,6 +453,7 @@ router.put('/:id/cancel', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VEND
  * /orders/admin:
  *   get:
  *     summary: Get all orders (Admin/Vendor)
+ *     description: Retrieve all orders with optional filters for status, payment status, date range, and order number
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -241,12 +462,12 @@ router.put('/:id/cancel', verifyToken, authorizeRoles('CUSTOMER', 'ADMIN', 'VEND
  *         name: status
  *         schema:
  *           type: string
- *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
+ *           enum: [Pending, Confirmed, Preparing for Shipment, Out for Delivery, Delivered, Cancelled]
  *       - in: query
  *         name: paymentStatus
  *         schema:
  *           type: string
- *           enum: [PENDING, COMPLETED, FAILED, REFUNDED]
+ *           enum: [pending, completed, failed, refunded]
  *       - in: query
  *         name: orderNumber
  *         schema:
@@ -274,6 +495,7 @@ router.get('/admin', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), controller.
  * /orders/admin/stats:
  *   get:
  *     summary: Get admin/vendor order statistics
+ *     description: Retrieve comprehensive order statistics including counts by status, total revenue, and average order value
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -291,6 +513,34 @@ router.get('/admin', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), controller.
  *     responses:
  *       200:
  *         description: Statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: integer
+ *                     pending:
+ *                       type: integer
+ *                     confirmed:
+ *                       type: integer
+ *                     preparingForShipment:
+ *                       type: integer
+ *                     outForDelivery:
+ *                       type: integer
+ *                     delivered:
+ *                       type: integer
+ *                     cancelled:
+ *                       type: integer
+ *                     totalRevenue:
+ *                       type: number
+ *                     averageOrderValue:
+ *                       type: number
  *       401:
  *         description: Unauthorized
  */
@@ -301,6 +551,7 @@ router.get('/admin/stats', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), contr
  * /orders/admin/recent:
  *   get:
  *     summary: Get recent orders (Admin/Vendor)
+ *     description: Retrieve the most recent orders with configurable limit
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -310,6 +561,7 @@ router.get('/admin/stats', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), contr
  *         schema:
  *           type: integer
  *           default: 10
+ *         description: Number of recent orders to retrieve
  *     responses:
  *       200:
  *         description: Recent orders retrieved successfully
@@ -323,6 +575,7 @@ router.get('/admin/recent', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), cont
  * /orders/admin/{id}:
  *   get:
  *     summary: Get an order by ID (Admin/Vendor)
+ *     description: Retrieve detailed information about a specific order including products, shipping, and payment details
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -332,6 +585,7 @@ router.get('/admin/recent', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), cont
  *         required: true
  *         schema:
  *           type: string
+ *         description: Order database ID
  *     responses:
  *       200:
  *         description: Order retrieved successfully
@@ -345,6 +599,7 @@ router.get('/admin/:id', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), Validat
  * /orders/admin/{id}/status:
  *   put:
  *     summary: Update order status (Admin/Vendor)
+ *     description: Update the status of an order with optional note and tracking number. Status transitions are validated.
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -375,6 +630,7 @@ router.put('/admin/:id/status', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), 
  * /orders/admin/{id}/payment-status:
  *   put:
  *     summary: Update payment status (Admin/Vendor)
+ *     description: Manually update the payment status of an order
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -395,7 +651,7 @@ router.put('/admin/:id/status', verifyToken, authorizeRoles('ADMIN', 'VENDOR'), 
  *             properties:
  *               paymentStatus:
  *                 type: string
- *                 enum: [PENDING, COMPLETED, FAILED, REFUNDED]
+ *                 enum: [pending, completed, failed, refunded]
  *     responses:
  *       200:
  *         description: Payment status updated successfully
@@ -408,37 +664,11 @@ router.put('/admin/:id/payment-status', controller.updatePaymentStatus);
 
 /**
  * @swagger
- * /orders/admin/{id}:
- *   delete:
- *     summary: Delete an order (Admin only)
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Order deleted successfully
- *       404:
- *         description: Order not found
- *       401:
- *         description: Unauthorized
- */
-router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMiddleware.validateObjectId, controller.deleteOrder);
-
-// NEW: Route for updating payment with payment history
-/**
- * @swagger
  * /orders/admin/{id}/payment-history:
  *   put:
  *     summary: Update payment status with payment history
+ *     description: Update payment status and add detailed payment history record with gateway transaction details
  *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -471,29 +701,22 @@ router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMidd
  *                     example: Mastercard AFS
  *                   gatewayTransactionId:
  *                     type: string
- *                     example: ORDER-1234567890-ABC
  *                   sessionId:
  *                     type: string
- *                     example: SESSION123456
  *                   resultIndicator:
  *                     type: string
  *                   successIndicator:
  *                     type: string
  *                   amount:
  *                     type: number
- *                     example: 150.50
  *                   currency:
  *                     type: string
- *                     example: USD
  *                   paymentMethod:
  *                     type: string
- *                     example: Credit Card
  *                   cardType:
  *                     type: string
- *                     example: Visa
  *                   lastFourDigits:
  *                     type: string
- *                     example: 1234
  *                   gatewayResponse:
  *                     type: object
  *     responses:
@@ -506,6 +729,29 @@ router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMidd
  */
 router.put('/admin/:id/payment-history', ValidationMiddleware.validateObjectId, controller.updatePaymentWithHistory);
 
+/**
+ * @swagger
+ * /orders/admin/{id}:
+ *   delete:
+ *     summary: Delete an order (Admin only)
+ *     description: Permanently delete an order from the system. This action cannot be undone.
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order deleted successfully
+ *       404:
+ *         description: Order not found
+ *       401:
+ *         description: Unauthorized
+ */
 router.delete('/admin/:id', verifyToken, authorizeRoles('ADMIN'), ValidationMiddleware.validateObjectId, controller.deleteOrder);
 
 export const OrderRoute = router;

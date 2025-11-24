@@ -1,19 +1,25 @@
 import { Document, Types } from 'mongoose';
 
 export enum OrderStatus {
-  PENDING = 'Pending',
-  CONFIRMED = 'Confirmed',
-  PREPARING_FOR_SHIPMENT = 'Preparing for Shipment',
-  OUT_FOR_DELIVERY = 'Out for Delivery',
-  DELIVERED = 'Delivered',
-  CANCELLED = 'Cancelled'
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  PREPARING_FOR_SHIPMENT = 'PREPARING_FOR_SHIPMENT',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED'
 }
 
 export enum PaymentStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  REFUNDED = 'refunded'
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED'
+}
+
+export enum PaymentMethodType {
+  WALLET = 'WALLET',
+  GATEWAY = 'GATEWAY',
+  CASH_ON_DELIVERY = 'CASH_ON_DELIVERY'
 }
 
 export interface IOrderProduct {
@@ -33,21 +39,20 @@ export interface IShippingAddress {
   zipCode: string;
 }
 
-// NEW: Payment history interface
 export interface IPaymentHistory {
-  paymentGateway: string; // e.g., 'Mastercard AFS'
-  gatewayTransactionId: string; // Transaction ID from payment gateway
-  sessionId?: string; // Payment session ID
-  resultIndicator?: string; // Payment result indicator
-  successIndicator?: string; // Success indicator for verification
+  paymentGateway: string;
+  gatewayTransactionId: string;
+  sessionId?: string;
+  resultIndicator?: string;
+  successIndicator?: string;
   amount: number;
   currency: string;
   paymentStatus: PaymentStatus;
-  paymentMethod?: string; // e.g., 'Credit Card', 'Debit Card'
-  cardType?: string; // e.g., 'Visa', 'Mastercard'
-  lastFourDigits?: string; // Last 4 digits of card
+  paymentMethod?: string;
+  cardType?: string;
+  lastFourDigits?: string;
   paymentDate: Date;
-  gatewayResponse?: any; // Full gateway response (optional)
+  gatewayResponse?: any;
   refundDetails?: {
     refundedAmount: number;
     refundDate: Date;
@@ -71,6 +76,7 @@ export interface IOrder extends Document {
   actualDeliveryDate: Date | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethodUsed?: PaymentMethodType; // NEW: Track which payment method was used
   shippingMethodId: Types.ObjectId;
   transactionId?: string;
   orderNotes: string | null;
@@ -80,7 +86,7 @@ export interface IOrder extends Document {
     timestamp: Date;
     note?: string;
   }>;
-  paymentHistory: IPaymentHistory[]; // NEW: Payment history array
+  paymentHistory: IPaymentHistory[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -106,6 +112,7 @@ export interface ICreateOrder {
   promoCode?: string;
   estimatedDeliveryDate?: Date;
   orderNotes?: string;
+  paymentMethod?: PaymentMethodType; // NEW: Payment method selection
 }
 
 export interface IUpdateOrderStatus {
@@ -114,7 +121,6 @@ export interface IUpdateOrderStatus {
   trackingNumber?: string;
 }
 
-// NEW: Interface for updating payment with history
 export interface IUpdatePaymentWithHistory {
   paymentStatus: PaymentStatus;
   paymentHistory: {
