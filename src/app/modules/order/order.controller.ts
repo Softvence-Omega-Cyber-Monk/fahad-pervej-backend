@@ -52,15 +52,11 @@ export class OrderController {
     }
   };
 
-  /**
-   * NEW: Complete payment for an order
-   * This endpoint marks payment as complete and records payment details
-   */
   completeOrderPayment = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { orderId, transactionId, paymentGateway, paymentMethod, amount, currency, cardType, lastFourDigits, gatewayResponse } = req.body;
+      const { orderId, transactionId, paymentGateway, currency, gatewayResponse } = req.body;
 
-      if (!orderId || !transactionId || !paymentGateway || !amount || !currency) {
+      if (!orderId || !transactionId || !paymentGateway || !currency) {
         res.status(400).json({
           success: false,
           error: 'Missing required payment parameters (orderId, transactionId, paymentGateway, amount, currency)'
@@ -92,11 +88,7 @@ export class OrderController {
       const paymentHistory = {
         paymentGateway: paymentGateway,
         gatewayTransactionId: transactionId,
-        amount: parseFloat(amount),
         currency: currency,
-        paymentMethod: paymentMethod || 'Credit Card',
-        cardType: cardType,
-        lastFourDigits: lastFourDigits,
         gatewayResponse: gatewayResponse
       };
 
@@ -121,7 +113,6 @@ export class OrderController {
           transactionId: transactionId,
           paymentDetails: {
             transactionId: paymentHistory.gatewayTransactionId,
-            amount: paymentHistory.amount,
             currency: paymentHistory.currency,
             gateway: paymentHistory.paymentGateway
           }

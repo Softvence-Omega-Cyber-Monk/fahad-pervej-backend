@@ -4,7 +4,6 @@ import { emailService } from './email.service';
 import mongoose from 'mongoose';
 import {
   IOrder,
-  ICreateOrder,
   IUpdateOrderStatus,
   IOrderFilters,
   IOrderStats,
@@ -134,7 +133,6 @@ export class OrderService {
         promoCode: data.promoCode || null,
         estimatedDeliveryDate,
         shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
-        transactionId: transactionId,
         orderNotes: data.orderNotes || null,
         status: orderStatus,
         paymentStatus: paymentStatus,
@@ -432,8 +430,8 @@ export class OrderService {
 
   async updatePaymentWithHistory(
     orderId: string,
-    data: IUpdatePaymentWithHistory
-  ): Promise<IOrder> {
+    data: any
+  ): Promise<any> {
     const order = await Order.findById(orderId);
 
     if (!order) {
@@ -447,15 +445,8 @@ export class OrderService {
     order.paymentHistory.push({
       paymentGateway: data.paymentHistory.paymentGateway,
       gatewayTransactionId: data.paymentHistory.gatewayTransactionId,
-      sessionId: data.paymentHistory.sessionId,
-      resultIndicator: data.paymentHistory.resultIndicator,
-      successIndicator: data.paymentHistory.successIndicator,
-      amount: data.paymentHistory.amount,
       currency: data.paymentHistory.currency,
       paymentStatus: data.paymentStatus,
-      paymentMethod: data.paymentHistory.paymentMethod,
-      cardType: data.paymentHistory.cardType,
-      lastFourDigits: data.paymentHistory.lastFourDigits,
       paymentDate: new Date(),
       gatewayResponse: data.paymentHistory.gatewayResponse
     });

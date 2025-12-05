@@ -102,20 +102,11 @@ const paymentHistorySchema = new Schema({
     type: String,
     trim: true
   },
-  successIndicator: {
-    type: String,
-    trim: true
-  },
-  amount: {
-    type: Number,
-    required: true,
-    min: [0, 'Amount cannot be negative']
-  },
   currency: {
     type: String,
     required: true,
     uppercase: true,
-    default: 'USD'
+    default: 'BHD'
   },
   paymentStatus: {
     type: String,
@@ -123,14 +114,6 @@ const paymentHistorySchema = new Schema({
     required: true
   },
   paymentMethod: {
-    type: String,
-    trim: true
-  },
-  cardType: {
-    type: String,
-    trim: true
-  },
-  lastFourDigits: {
     type: String,
     trim: true
   },

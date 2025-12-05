@@ -45,7 +45,6 @@ export interface IPaymentHistory {
   sessionId?: string;
   resultIndicator?: string;
   successIndicator?: string;
-  amount: number;
   currency: string;
   paymentStatus: PaymentStatus;
   paymentMethod?: string;
@@ -129,7 +128,6 @@ export interface IUpdatePaymentWithHistory {
     sessionId?: string;
     resultIndicator?: string;
     successIndicator?: string;
-    amount: number;
     currency: string;
     paymentMethod?: string;
     cardType?: string;
