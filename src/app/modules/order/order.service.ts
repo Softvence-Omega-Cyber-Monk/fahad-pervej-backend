@@ -1,5 +1,6 @@
 import Order from './order.model';
 import { payoutService } from '../payout/payout.service';
+import { emailService } from './email.service';
 import mongoose from 'mongoose';
 import {
   IOrder,
@@ -24,8 +25,11 @@ export class OrderService {
       // Fetch products from database to populate product details
       const Product = mongoose.model('Product');
       const productIds = data.products.map((p: { productId: number; }) => new mongoose.Types.ObjectId(p.productId));
+      
+      // FIXED: Changed vendorId to userId (which is the seller/vendor in Product schema)
       const products = await Product.find({ _id: { $in: productIds } })
-        .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate');
+        .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate productName userId')
+        .populate('userId', 'name email role'); // userId contains the vendor/seller information
 
       if (products.length !== data.products.length) {
         throw new Error('One or more products not found');
@@ -50,21 +54,25 @@ export class OrderService {
           }
         }
 
-        productMap.set(product._id.toString(), currentPrice);
+        productMap.set(product._id.toString(), {
+          price: currentPrice,
+          productName: product.productName,
+          vendor: product.userId // This is the vendor/seller
+        });
       });
 
       // Map products with prices and totals
       const orderProducts = data.products.map((item: { productId: number; quantity: number; }) => {
-        const price = productMap.get(item.productId);
-        if (price === undefined) {
+        const productData = productMap.get(item.productId);
+        if (!productData) {
           throw new Error(`Price not found for product ${item.productId}`);
         }
 
         return {
           productId: new mongoose.Types.ObjectId(item.productId),
           quantity: item.quantity,
-          price: price,
-          total: item.quantity * price
+          price: productData.price,
+          total: item.quantity * productData.price
         };
       });
 
@@ -148,6 +156,64 @@ export class OrderService {
 
       // Populate product details
       await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
+      await order.populate('userId', 'name email');
+
+      // ===== Send email notifications to vendors =====
+      try {
+        // Group products by vendor (userId in Product model)
+        const vendorProductsMap = new Map();
+
+        products.forEach((product: any, index: number) => {
+          // product.userId contains the vendor information
+          if (product.userId && product.userId.email) {
+            const vendorId = product.userId._id.toString();
+            const vendorEmail = product.userId.email;
+            const vendorName = product.userId.name || 'Vendor';
+
+            if (!vendorProductsMap.has(vendorId)) {
+              vendorProductsMap.set(vendorId, {
+                vendorEmail,
+                vendorName,
+                products: []
+              });
+            }
+
+            // Find the corresponding order product
+            const orderProduct = data.products[index];
+            const productData = productMap.get(product._id.toString());
+
+            vendorProductsMap.get(vendorId).products.push({
+              productName: product.productName,
+              quantity: orderProduct.quantity,
+              price: productData.price,
+              total: orderProduct.quantity * productData.price
+            });
+          }
+        });
+
+        // Send email to each vendor
+        for (const [vendorId, vendorData] of vendorProductsMap) {
+          await emailService.sendVendorOrderNotification({
+            vendorEmail: vendorData.vendorEmail,
+            vendorName: vendorData.vendorName,
+            order: order.toObject(),
+            products: vendorData.products
+          });
+        }
+
+        // Send confirmation email to customer
+        const customer = order.userId as any;
+        if (customer && customer.email) {
+          await emailService.sendCustomerOrderConfirmation(
+            customer.email,
+            customer.name || data.fullName,
+            order.toObject()
+          );
+        }
+      } catch (emailError) {
+        // Log email error but don't fail the order creation
+        console.error('Error sending order notification emails:', emailError);
+      }
 
       return order;
     } catch (error) {
@@ -236,7 +302,7 @@ export class OrderService {
     data: IUpdateOrderStatus
   ): Promise<IOrder> {
     const order = await Order.findById(orderId)
-      .populate('products.productId', 'vendorId');
+      .populate('products.productId', 'userId'); // Changed from vendorId to userId
 
     if (!order) {
       throw new Error('Order not found');
@@ -264,19 +330,18 @@ export class OrderService {
     if (data.status === OrderStatus.DELIVERED && !order.actualDeliveryDate) {
       order.actualDeliveryDate = new Date();
 
-      // ===== NEW: Create vendor earning when order is delivered =====
+      // Create vendor earning when order is delivered
       try {
-        // Get vendor ID from the first product (assuming single-vendor orders)
-        // If you have multi-vendor orders, you'll need to loop through products
+        // Get vendor ID from the first product's userId field
         const firstProduct = order.products[0] as any;
 
-        if (firstProduct?.productId?.vendorId) {
-          const vendorId = firstProduct.productId.vendorId.toString();
+        if (firstProduct?.productId?.userId) {
+          const vendorId = firstProduct.productId.userId.toString();
 
           // Create vendor earning (90% to vendor, 10% platform commission)
           await payoutService.createVendorEarning(
             vendorId,
-            order._id.toString(),
+            (order._id as any).toString(),
             order.orderNumber,
             order.grandTotal
           );
@@ -286,9 +351,7 @@ export class OrderService {
       } catch (error) {
         console.error('Error creating vendor earning:', error);
         // Don't throw error to prevent order status update failure
-        // Log for admin review
       }
-      // ===== END NEW CODE =====
     }
 
     await order.save();
