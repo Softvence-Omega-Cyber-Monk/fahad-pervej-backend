@@ -21,6 +21,7 @@ import { AFSPayment } from "./app/modules/afsPayment/afsPayment.routes";
 import { WalletRoutes } from "./app/modules/wallet/wallet.routes";
 import { PolicyRoutes } from "./app/modules/policy/policy.routes";
 import { PartnerRoutes } from "./app/modules/partners/partners.routes";
+import { shippingRoutes } from "./app/modules/shipping/shipping.routes";
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ app.use('/api/v1/afspay', AFSPayment)
 app.use("/api/v1/wallet", WalletRoutes);
 app.use("/api/v1/policy", PolicyRoutes)
 app.use("/api/v1/partners", PartnerRoutes)
+app.use("/api/v1/shipping", shippingRoutes)
 // ✅ Default route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json("Welcome to multivendor medicine app");
