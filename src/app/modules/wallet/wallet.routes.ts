@@ -161,6 +161,52 @@ router.get('/', verifyToken, authorizeRoles('CUSTOMER', 'VENDOR', 'ADMIN'), wall
 
 /**
  * @swagger
+ * /wallet/check-balance:
+ *   get:
+ *     summary: Check if wallet has sufficient balance
+ *     description: Check if the user's wallet has sufficient balance for a transaction
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: amount
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: Amount to check
+ *         example: 100.50
+ *     responses:
+ *       200:
+ *         description: Balance check successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     hasSufficientBalance:
+ *                       type: boolean
+ *                       example: true
+ *                     requestedAmount:
+ *                       type: number
+ *                       example: 100.50
+ *       400:
+ *         description: Invalid amount
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Failed to check balance
+ */
+router.get('/check-balance', verifyToken, authorizeRoles('CUSTOMER', 'VENDOR', 'ADMIN'), walletController.checkBalanceSufficiency);
+
+/**
+ * @swagger
  * /wallet/balance:
  *   get:
  *     summary: Get wallet balance

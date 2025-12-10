@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IOrder, OrderStatus, PaymentStatus } from './order.interface';
+import { IOrder, OrderStatus, PaymentStatus, PaymentMethodType } from './order.interface';
 
 const orderProductSchema = new Schema({
   productId: {
@@ -82,7 +82,6 @@ const statusHistorySchema = new Schema({
   }
 }, { _id: false });
 
-// NEW: Payment history schema
 const paymentHistorySchema = new Schema({
   paymentGateway: {
     type: String,
@@ -219,6 +218,14 @@ const orderSchema = new Schema<IOrder>(
       default: PaymentStatus.PENDING,
       index: true
     },
+    paymentMethodUsed: {
+      type: String,
+      enum: {
+        values: Object.values(PaymentMethodType),
+        message: '{VALUE} is not a valid payment method'
+      },
+      default: PaymentMethodType.GATEWAY
+    },
     shippingMethodId: {
       type: Schema.Types.ObjectId,
       ref: 'ShipmentCompany',
@@ -261,20 +268,14 @@ orderSchema.index({ transactionId: 1 });
 orderSchema.index({ 'shippingAddress.mobileNumber': 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ 'paymentHistory.gatewayTransactionId': 1 });
+orderSchema.index({ paymentMethodUsed: 1 });
 
 // Generate unique order number before saving
 orderSchema.pre('save', async function(next) {
-  if (this.isNew) {
+  if (this.isNew && !this.orderNumber) {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     this.orderNumber = `ORD-${timestamp}-${random}`;
-    
-    // Initialize status history
-    this.statusHistory = [{
-      status: this.status,
-      timestamp: new Date(),
-      note: 'Order created'
-    }];
   }
   next();
 });

@@ -98,6 +98,17 @@ const getProductType = (country: string): { productGroup: string; productType: s
   }
 };
 
+// Helper to parse address into multiple lines
+const parseAddress = (address: string): { line1: string; line2: string; line3: string } => {
+  const parts = address.split(',').map(part => part.trim()).filter(part => part.length > 0);
+  
+  return {
+    line1: parts[0] || 'N/A',
+    line2: parts[1] || 'N/A',
+    line3: parts[2] || 'N/A'
+  };
+};
+
 // Main shipping rate calculation function
 export const calculateAramexShippingRate = async (
   params: ShippingCalculationRequest
@@ -115,6 +126,7 @@ export const calculateAramexShippingRate = async (
   const packageDetails = calculateTotalPackageDetails(cartItems);
   const countryCode = getCountryCode(destinationCountry);
   const { productGroup, productType } = getProductType(destinationCountry);
+  const addressLines = parseAddress(destinationAddress);
   
   try {
     const requestBody = {
@@ -136,9 +148,9 @@ export const calculateAramexShippingRate = async (
         CountryCode: 'BH'
       },
       DestinationAddress: {
-        Line1: destinationAddress.split(',')[0],
-        Line2: destinationAddress.split(',')[1],
-        Line3: destinationAddress.split(',')[2],
+        Line1: addressLines.line1,
+        Line2: addressLines.line2,
+        Line3: addressLines.line3,
         City: destinationCity,
         PostCode: destinationPostCode,
         CountryCode: countryCode
@@ -169,6 +181,8 @@ export const calculateAramexShippingRate = async (
       PreferredCurrencyCode: 'BHD'
     };
 
+    console.log('Aramex Request:', JSON.stringify(requestBody, null, 2));
+
     const response = await axios.post(
       `${ARAMEX_CONFIG.baseUrl}/RateCalculator/Service_1_0.svc/json/CalculateRate`,
       requestBody,
@@ -181,7 +195,7 @@ export const calculateAramexShippingRate = async (
     );
 
     const data = response.data;
-    console.log(data)
+    console.log('Aramex Response:', JSON.stringify(data, null, 2));
     
     if (data.HasErrors) {
       console.error('Aramex API Error:', data.Notifications);

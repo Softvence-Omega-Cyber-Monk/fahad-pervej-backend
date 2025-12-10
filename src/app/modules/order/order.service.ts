@@ -10,12 +10,219 @@ import {
   IUserOrderStats,
   IUpdatePaymentWithHistory,
   OrderStatus,
-  PaymentStatus
+  PaymentStatus,
+  PaymentMethodType
 } from './order.interface';
 import { walletService } from '../wallet/wallet.service';
 
 
 export class OrderService {
+  // async createOrder(userId: string, data: any): Promise<IOrder> {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+
+  //   try {
+  //     // Fetch products from database to populate product details
+  //     const Product = mongoose.model('Product');
+  //     const productIds = data.products.map((p: { productId: number; }) => new mongoose.Types.ObjectId(p.productId));
+
+  //     // FIXED: Changed vendorId to userId (which is the seller/vendor in Product schema)
+  //     const products = await Product.find({ _id: { $in: productIds } })
+  //       .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate productName userId')
+  //       .populate('userId', 'name email role'); // userId contains the vendor/seller information
+
+  //     if (products.length !== data.products.length) {
+  //       throw new Error('One or more products not found');
+  //     }
+
+  //     // Create a map for quick price lookup
+  //     const productMap = new Map();
+  //     products.forEach((product: any) => {
+  //       let currentPrice = product.pricePerUnit;
+
+  //       if (
+  //         product.specialPrice &&
+  //         product.specialPriceStartingDate &&
+  //         product.specialPriceEndingDate
+  //       ) {
+  //         const now = new Date();
+  //         const startDate = new Date(product.specialPriceStartingDate);
+  //         const endDate = new Date(product.specialPriceEndingDate);
+
+  //         if (now >= startDate && now <= endDate) {
+  //           currentPrice = product.specialPrice;
+  //         }
+  //       }
+
+  //       productMap.set(product._id.toString(), {
+  //         price: currentPrice,
+  //         productName: product.productName,
+  //         vendor: product.userId // This is the vendor/seller
+  //       });
+  //     });
+
+  //     // Map products with prices and totals
+  //     const orderProducts = data.products.map((item: { productId: number; quantity: number; }) => {
+  //       const productData = productMap.get(item.productId);
+  //       if (!productData) {
+  //         throw new Error(`Price not found for product ${item.productId}`);
+  //       }
+
+  //       return {
+  //         productId: new mongoose.Types.ObjectId(item.productId),
+  //         quantity: item.quantity,
+  //         price: productData.price,
+  //         total: item.quantity * productData.price
+  //       };
+  //     });
+
+  //     // Use values from frontend
+  //     const discount = data.discount || 0;
+  //     const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
+
+  //     // Generate a unique order number (always uppercase)
+  //     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  //     // Set estimated delivery date (7 days from now if not provided)
+  //     const estimatedDeliveryDate = data.estimatedDeliveryDate
+  //       ? new Date(data.estimatedDeliveryDate)
+  //       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  //     // Handle wallet payment
+  //     let paymentStatus = PaymentStatus.PENDING;
+  //     let orderStatus = OrderStatus.PENDING;
+  //     let transactionId = data.transactionId;
+
+  //     if (data.paymentMethod === 'WALLET') {
+  //       // Check if user has sufficient balance
+  //       const hasSufficient = await walletService.hasSufficientBalance(userId, grandTotal);
+
+  //       if (!hasSufficient) {
+  //         throw new Error('Insufficient wallet balance');
+  //       }
+
+  //       // Debit wallet
+  //       await walletService.debitWallet(userId, {
+  //         amount: grandTotal,
+  //         orderId: orderNumber,
+  //         description: `Payment for order ${orderNumber}`
+  //       });
+
+  //       paymentStatus = PaymentStatus.COMPLETED;
+  //       orderStatus = OrderStatus.CONFIRMED;
+  //       transactionId = `WALLET-${Date.now()}`;
+  //     }
+
+  //     const orderData = {
+  //       orderNumber,
+  //       userId: new mongoose.Types.ObjectId(userId),
+  //       shippingAddress: {
+  //         fullName: data.fullName,
+  //         mobileNumber: data.mobileNumber,
+  //         country: data.country,
+  //         addressSpecific: data.addressSpecific,
+  //         city: data.city,
+  //         state: data.state,
+  //         zipCode: data.zipCode
+  //       },
+  //       products: orderProducts,
+  //       totalPrice: data.totalPrice,
+  //       shippingFee: data.shippingFee,
+  //       discount: discount,
+  //       tax: data.tax,
+  //       grandTotal: grandTotal,
+  //       promoCode: data.promoCode || null,
+  //       estimatedDeliveryDate,
+  //       shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
+  //       orderNotes: data.orderNotes || null,
+  //       status: orderStatus,
+  //       paymentStatus: paymentStatus,
+  //       paymentHistory: data.paymentMethod === 'WALLET' ? [{
+  //         paymentGateway: 'Wallet System',
+  //         gatewayTransactionId: transactionId,
+  //         amount: grandTotal,
+  //         currency: 'BHD',
+  //         paymentStatus: PaymentStatus.COMPLETED,
+  //         paymentMethod: 'Wallet',
+  //         paymentDate: new Date()
+  //       }] : []
+  //     };
+
+  //     const order = new Order(orderData);
+  //     await order.save({ session });
+
+  //     await session.commitTransaction();
+
+  //     // Populate product details
+  //     await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
+  //     await order.populate('userId', 'name email');
+
+  //     // ===== Send email notifications to vendors =====
+  //     try {
+  //       // Group products by vendor (userId in Product model)
+  //       const vendorProductsMap = new Map();
+
+  //       products.forEach((product: any, index: number) => {
+  //         // product.userId contains the vendor information
+  //         if (product.userId && product.userId.email) {
+  //           const vendorId = product.userId._id.toString();
+  //           const vendorEmail = product.userId.email;
+  //           const vendorName = product.userId.name || 'Vendor';
+
+  //           if (!vendorProductsMap.has(vendorId)) {
+  //             vendorProductsMap.set(vendorId, {
+  //               vendorEmail,
+  //               vendorName,
+  //               products: []
+  //             });
+  //           }
+
+  //           // Find the corresponding order product
+  //           const orderProduct = data.products[index];
+  //           const productData = productMap.get(product._id.toString());
+
+  //           vendorProductsMap.get(vendorId).products.push({
+  //             productName: product.productName,
+  //             quantity: orderProduct.quantity,
+  //             price: productData.price,
+  //             total: orderProduct.quantity * productData.price
+  //           });
+  //         }
+  //       });
+
+  //       // Send email to each vendor
+  //       for (const [vendorId, vendorData] of vendorProductsMap) {
+  //         await emailService.sendVendorOrderNotification({
+  //           vendorEmail: vendorData.vendorEmail,
+  //           vendorName: vendorData.vendorName,
+  //           order: order.toObject(),
+  //           products: vendorData.products
+  //         });
+  //       }
+
+  //       // Send confirmation email to customer
+  //       const customer = order.userId as any;
+  //       if (customer && customer.email) {
+  //         await emailService.sendCustomerOrderConfirmation(
+  //           customer.email,
+  //           customer.name || data.fullName,
+  //           order.toObject()
+  //         );
+  //       }
+  //     } catch (emailError) {
+  //       // Log email error but don't fail the order creation
+  //       console.error('Error sending order notification emails:', emailError);
+  //     }
+
+  //     return order;
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     console.error('Error creating order:', error);
+  //     throw error;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
   async createOrder(userId: string, data: any): Promise<IOrder> {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -24,11 +231,10 @@ export class OrderService {
       // Fetch products from database to populate product details
       const Product = mongoose.model('Product');
       const productIds = data.products.map((p: { productId: number; }) => new mongoose.Types.ObjectId(p.productId));
-      
-      // FIXED: Changed vendorId to userId (which is the seller/vendor in Product schema)
+
       const products = await Product.find({ _id: { $in: productIds } })
         .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate productName userId')
-        .populate('userId', 'name email role'); // userId contains the vendor/seller information
+        .populate('userId', 'name email role');
 
       if (products.length !== data.products.length) {
         throw new Error('One or more products not found');
@@ -56,7 +262,7 @@ export class OrderService {
         productMap.set(product._id.toString(), {
           price: currentPrice,
           productName: product.productName,
-          vendor: product.userId // This is the vendor/seller
+          vendor: product.userId
         });
       });
 
@@ -87,29 +293,54 @@ export class OrderService {
         ? new Date(data.estimatedDeliveryDate)
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      // Handle wallet payment
+      // Initialize payment variables
       let paymentStatus = PaymentStatus.PENDING;
       let orderStatus = OrderStatus.PENDING;
-      let transactionId = data.transactionId;
+      let transactionId = data.transactionId || null;
+      let paymentMethodUsed = data.paymentMethod || PaymentMethodType.GATEWAY;
+      const paymentHistory: any[] = [];
 
+      // Handle wallet payment - check balance first
       if (data.paymentMethod === 'WALLET') {
-        // Check if user has sufficient balance
+        console.log('Processing wallet payment for order:', orderNumber);
+
+        // Check if user has sufficient balance BEFORE creating order
         const hasSufficient = await walletService.hasSufficientBalance(userId, grandTotal);
 
         if (!hasSufficient) {
-          throw new Error('Insufficient wallet balance');
+          const balance = await walletService.getWalletBalance(userId);
+          throw new Error(
+            `Insufficient wallet balance. Available: ${balance.balance.toFixed(2)} BHD, Required: ${grandTotal.toFixed(2)} BHD`
+          );
         }
 
-        // Debit wallet
-        await walletService.debitWallet(userId, {
-          amount: grandTotal,
-          orderId: orderNumber,
-          description: `Payment for order ${orderNumber}`
-        });
+        // Generate wallet transaction ID
+        transactionId = `WALLET-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
+        console.log('Wallet balance verified. Proceeding with order creation.');
+
+        // Set payment as completed for wallet
         paymentStatus = PaymentStatus.COMPLETED;
         orderStatus = OrderStatus.CONFIRMED;
-        transactionId = `WALLET-${Date.now()}`;
+        paymentMethodUsed = PaymentMethodType.WALLET;
+
+        // Add wallet payment to history
+        paymentHistory.push({
+          paymentGateway: 'Wallet System',
+          gatewayTransactionId: transactionId,
+          currency: 'BHD',
+          paymentStatus: PaymentStatus.COMPLETED,
+          paymentMethod: 'Wallet',
+          paymentDate: new Date(),
+          gatewayResponse: {
+            success: true,
+            message: 'Payment processed via wallet',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } else {
+        // Gateway payment - will be processed later
+        paymentMethodUsed = PaymentMethodType.GATEWAY;
       }
 
       const orderData = {
@@ -136,19 +367,36 @@ export class OrderService {
         orderNotes: data.orderNotes || null,
         status: orderStatus,
         paymentStatus: paymentStatus,
-        paymentHistory: data.paymentMethod === 'WALLET' ? [{
-          paymentGateway: 'Wallet System',
-          gatewayTransactionId: transactionId,
-          amount: grandTotal,
-          currency: 'BHD',
-          paymentStatus: PaymentStatus.COMPLETED,
-          paymentMethod: 'Wallet',
-          paymentDate: new Date()
-        }] : []
+        paymentMethodUsed: paymentMethodUsed,
+        transactionId: transactionId,
+        paymentHistory: paymentHistory,
+        statusHistory: [{
+          status: orderStatus,
+          timestamp: new Date(),
+          note: paymentMethodUsed === PaymentMethodType.WALLET
+            ? 'Order created and paid via wallet'
+            : 'Order created - awaiting payment'
+        }]
       };
 
       const order = new Order(orderData);
       await order.save({ session });
+
+      // Now debit wallet AFTER order is created (so we have the order ID)
+      if (data.paymentMethod === 'WALLET') {
+        try {
+          const walletResult = await walletService.debitWallet(userId, {
+            amount: grandTotal,
+            orderId: (order._id as string).toString(), // Use the actual order ID from the saved order
+            description: `Payment for order ${orderNumber}`
+          });
+
+          console.log('Wallet debited successfully:', walletResult.balance);
+        } catch (walletError) {
+          // If wallet debit fails, we need to rollback the order creation
+          throw new Error(`Failed to debit wallet: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`);
+        }
+      }
 
       await session.commitTransaction();
 
@@ -156,13 +404,11 @@ export class OrderService {
       await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
       await order.populate('userId', 'name email');
 
-      // ===== Send email notifications to vendors =====
+      // Send email notifications to vendors
       try {
-        // Group products by vendor (userId in Product model)
         const vendorProductsMap = new Map();
 
         products.forEach((product: any, index: number) => {
-          // product.userId contains the vendor information
           if (product.userId && product.userId.email) {
             const vendorId = product.userId._id.toString();
             const vendorEmail = product.userId.email;
@@ -176,7 +422,6 @@ export class OrderService {
               });
             }
 
-            // Find the corresponding order product
             const orderProduct = data.products[index];
             const productData = productMap.get(product._id.toString());
 
@@ -209,7 +454,6 @@ export class OrderService {
           );
         }
       } catch (emailError) {
-        // Log email error but don't fail the order creation
         console.error('Error sending order notification emails:', emailError);
       }
 

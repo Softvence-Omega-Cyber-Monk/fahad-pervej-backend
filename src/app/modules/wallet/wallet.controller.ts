@@ -263,6 +263,49 @@ export class WalletController {
       });
     }
   };
+
+  /**
+ * Check if user has sufficient balance
+ */
+  checkBalanceSufficiency = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const amount = parseFloat(req.query.amount as string);
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'User not authenticated'
+        });
+        return;
+      }
+
+      if (!amount || amount <= 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid amount'
+        });
+        return;
+      }
+
+      const hasSufficientBalance = await walletService.hasSufficientBalance(userId, amount);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          hasSufficientBalance,
+          requestedAmount: amount
+        }
+      });
+    } catch (error: any) {
+      console.error('Error checking balance sufficiency:', error.message);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check balance'
+      });
+    }
+  };
+
 }
 
 export const walletController = new WalletController();
