@@ -8,221 +8,13 @@ import {
   IOrderFilters,
   IOrderStats,
   IUserOrderStats,
-  IUpdatePaymentWithHistory,
   OrderStatus,
   PaymentStatus,
   PaymentMethodType
 } from './order.interface';
 import { walletService } from '../wallet/wallet.service';
 
-
 export class OrderService {
-  // async createOrder(userId: string, data: any): Promise<IOrder> {
-  //   const session = await mongoose.startSession();
-  //   session.startTransaction();
-
-  //   try {
-  //     // Fetch products from database to populate product details
-  //     const Product = mongoose.model('Product');
-  //     const productIds = data.products.map((p: { productId: number; }) => new mongoose.Types.ObjectId(p.productId));
-
-  //     // FIXED: Changed vendorId to userId (which is the seller/vendor in Product schema)
-  //     const products = await Product.find({ _id: { $in: productIds } })
-  //       .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate productName userId')
-  //       .populate('userId', 'name email role'); // userId contains the vendor/seller information
-
-  //     if (products.length !== data.products.length) {
-  //       throw new Error('One or more products not found');
-  //     }
-
-  //     // Create a map for quick price lookup
-  //     const productMap = new Map();
-  //     products.forEach((product: any) => {
-  //       let currentPrice = product.pricePerUnit;
-
-  //       if (
-  //         product.specialPrice &&
-  //         product.specialPriceStartingDate &&
-  //         product.specialPriceEndingDate
-  //       ) {
-  //         const now = new Date();
-  //         const startDate = new Date(product.specialPriceStartingDate);
-  //         const endDate = new Date(product.specialPriceEndingDate);
-
-  //         if (now >= startDate && now <= endDate) {
-  //           currentPrice = product.specialPrice;
-  //         }
-  //       }
-
-  //       productMap.set(product._id.toString(), {
-  //         price: currentPrice,
-  //         productName: product.productName,
-  //         vendor: product.userId // This is the vendor/seller
-  //       });
-  //     });
-
-  //     // Map products with prices and totals
-  //     const orderProducts = data.products.map((item: { productId: number; quantity: number; }) => {
-  //       const productData = productMap.get(item.productId);
-  //       if (!productData) {
-  //         throw new Error(`Price not found for product ${item.productId}`);
-  //       }
-
-  //       return {
-  //         productId: new mongoose.Types.ObjectId(item.productId),
-  //         quantity: item.quantity,
-  //         price: productData.price,
-  //         total: item.quantity * productData.price
-  //       };
-  //     });
-
-  //     // Use values from frontend
-  //     const discount = data.discount || 0;
-  //     const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
-
-  //     // Generate a unique order number (always uppercase)
-  //     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-  //     // Set estimated delivery date (7 days from now if not provided)
-  //     const estimatedDeliveryDate = data.estimatedDeliveryDate
-  //       ? new Date(data.estimatedDeliveryDate)
-  //       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-  //     // Handle wallet payment
-  //     let paymentStatus = PaymentStatus.PENDING;
-  //     let orderStatus = OrderStatus.PENDING;
-  //     let transactionId = data.transactionId;
-
-  //     if (data.paymentMethod === 'WALLET') {
-  //       // Check if user has sufficient balance
-  //       const hasSufficient = await walletService.hasSufficientBalance(userId, grandTotal);
-
-  //       if (!hasSufficient) {
-  //         throw new Error('Insufficient wallet balance');
-  //       }
-
-  //       // Debit wallet
-  //       await walletService.debitWallet(userId, {
-  //         amount: grandTotal,
-  //         orderId: orderNumber,
-  //         description: `Payment for order ${orderNumber}`
-  //       });
-
-  //       paymentStatus = PaymentStatus.COMPLETED;
-  //       orderStatus = OrderStatus.CONFIRMED;
-  //       transactionId = `WALLET-${Date.now()}`;
-  //     }
-
-  //     const orderData = {
-  //       orderNumber,
-  //       userId: new mongoose.Types.ObjectId(userId),
-  //       shippingAddress: {
-  //         fullName: data.fullName,
-  //         mobileNumber: data.mobileNumber,
-  //         country: data.country,
-  //         addressSpecific: data.addressSpecific,
-  //         city: data.city,
-  //         state: data.state,
-  //         zipCode: data.zipCode
-  //       },
-  //       products: orderProducts,
-  //       totalPrice: data.totalPrice,
-  //       shippingFee: data.shippingFee,
-  //       discount: discount,
-  //       tax: data.tax,
-  //       grandTotal: grandTotal,
-  //       promoCode: data.promoCode || null,
-  //       estimatedDeliveryDate,
-  //       shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
-  //       orderNotes: data.orderNotes || null,
-  //       status: orderStatus,
-  //       paymentStatus: paymentStatus,
-  //       paymentHistory: data.paymentMethod === 'WALLET' ? [{
-  //         paymentGateway: 'Wallet System',
-  //         gatewayTransactionId: transactionId,
-  //         amount: grandTotal,
-  //         currency: 'BHD',
-  //         paymentStatus: PaymentStatus.COMPLETED,
-  //         paymentMethod: 'Wallet',
-  //         paymentDate: new Date()
-  //       }] : []
-  //     };
-
-  //     const order = new Order(orderData);
-  //     await order.save({ session });
-
-  //     await session.commitTransaction();
-
-  //     // Populate product details
-  //     await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
-  //     await order.populate('userId', 'name email');
-
-  //     // ===== Send email notifications to vendors =====
-  //     try {
-  //       // Group products by vendor (userId in Product model)
-  //       const vendorProductsMap = new Map();
-
-  //       products.forEach((product: any, index: number) => {
-  //         // product.userId contains the vendor information
-  //         if (product.userId && product.userId.email) {
-  //           const vendorId = product.userId._id.toString();
-  //           const vendorEmail = product.userId.email;
-  //           const vendorName = product.userId.name || 'Vendor';
-
-  //           if (!vendorProductsMap.has(vendorId)) {
-  //             vendorProductsMap.set(vendorId, {
-  //               vendorEmail,
-  //               vendorName,
-  //               products: []
-  //             });
-  //           }
-
-  //           // Find the corresponding order product
-  //           const orderProduct = data.products[index];
-  //           const productData = productMap.get(product._id.toString());
-
-  //           vendorProductsMap.get(vendorId).products.push({
-  //             productName: product.productName,
-  //             quantity: orderProduct.quantity,
-  //             price: productData.price,
-  //             total: orderProduct.quantity * productData.price
-  //           });
-  //         }
-  //       });
-
-  //       // Send email to each vendor
-  //       for (const [vendorId, vendorData] of vendorProductsMap) {
-  //         await emailService.sendVendorOrderNotification({
-  //           vendorEmail: vendorData.vendorEmail,
-  //           vendorName: vendorData.vendorName,
-  //           order: order.toObject(),
-  //           products: vendorData.products
-  //         });
-  //       }
-
-  //       // Send confirmation email to customer
-  //       const customer = order.userId as any;
-  //       if (customer && customer.email) {
-  //         await emailService.sendCustomerOrderConfirmation(
-  //           customer.email,
-  //           customer.name || data.fullName,
-  //           order.toObject()
-  //         );
-  //       }
-  //     } catch (emailError) {
-  //       // Log email error but don't fail the order creation
-  //       console.error('Error sending order notification emails:', emailError);
-  //     }
-
-  //     return order;
-  //   } catch (error) {
-  //     await session.abortTransaction();
-  //     console.error('Error creating order:', error);
-  //     throw error;
-  //   } finally {
-  //     session.endSession();
-  //   }
-  // }
   async createOrder(userId: string, data: any): Promise<IOrder> {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -234,7 +26,7 @@ export class OrderService {
 
       const products = await Product.find({ _id: { $in: productIds } })
         .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate productName userId')
-        .populate('userId', 'name email role');
+        .populate('userId', 'name email role businessName');
 
       if (products.length !== data.products.length) {
         throw new Error('One or more products not found');
@@ -242,6 +34,8 @@ export class OrderService {
 
       // Create a map for quick price lookup
       const productMap = new Map();
+      const vendorProductsMap = new Map(); // For email notifications
+
       products.forEach((product: any) => {
         let currentPrice = product.pricePerUnit;
 
@@ -264,6 +58,18 @@ export class OrderService {
           productName: product.productName,
           vendor: product.userId
         });
+
+        // Group products by vendor for email notification
+        if (product.userId && product.userId.email) {
+          const vendorId = product.userId._id.toString();
+          if (!vendorProductsMap.has(vendorId)) {
+            vendorProductsMap.set(vendorId, {
+              vendorEmail: product.userId.email,
+              vendorName: product.userId.name || product.userId.businessName || 'Vendor',
+              products: []
+            });
+          }
+        }
       });
 
       // Map products with prices and totals
@@ -271,6 +77,20 @@ export class OrderService {
         const productData = productMap.get(item.productId);
         if (!productData) {
           throw new Error(`Price not found for product ${item.productId}`);
+        }
+
+        // Add to vendor's product list for email
+        if (productData.vendor && productData.vendor.email) {
+          const vendorId = productData.vendor._id.toString();
+          const vendorData = vendorProductsMap.get(vendorId);
+          if (vendorData) {
+            vendorData.products.push({
+              productName: productData.productName,
+              quantity: item.quantity,
+              price: productData.price,
+              total: item.quantity * productData.price
+            });
+          }
         }
 
         return {
@@ -310,7 +130,7 @@ export class OrderService {
         if (!hasSufficient) {
           const balance = await walletService.getWalletBalance(userId);
           throw new Error(
-            `Insufficient wallet balance. Available: ${balance.balance.toFixed(2)} BHD, Required: ${grandTotal.toFixed(2)} BHD`
+            `Insufficient wallet balance. Available: ${balance.balance.toFixed(3)} BHD, Required: ${grandTotal.toFixed(3)} BHD`
           );
         }
 
@@ -387,11 +207,11 @@ export class OrderService {
         try {
           const walletResult = await walletService.debitWallet(userId, {
             amount: grandTotal,
-            orderId: (order._id as string).toString(), // Use the actual order ID from the saved order
+            orderId: (order._id as string).toString(),
             description: `Payment for order ${orderNumber}`
           });
 
-          console.log('Wallet debited successfully:', walletResult.balance);
+          console.log('✅ Wallet debited successfully:', walletResult.balance, 'BHD');
         } catch (walletError) {
           // If wallet debit fails, we need to rollback the order creation
           throw new Error(`Failed to debit wallet: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`);
@@ -400,67 +220,63 @@ export class OrderService {
 
       await session.commitTransaction();
 
-      // Populate product details
+      // Populate product details for response
       await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
       await order.populate('userId', 'name email');
 
-      // Send email notifications to vendors
+      // ===== Send email notifications =====
       try {
-        const vendorProductsMap = new Map();
-
-        products.forEach((product: any, index: number) => {
-          if (product.userId && product.userId.email) {
-            const vendorId = product.userId._id.toString();
-            const vendorEmail = product.userId.email;
-            const vendorName = product.userId.name || 'Vendor';
-
-            if (!vendorProductsMap.has(vendorId)) {
-              vendorProductsMap.set(vendorId, {
-                vendorEmail,
-                vendorName,
-                products: []
-              });
-            }
-
-            const orderProduct = data.products[index];
-            const productData = productMap.get(product._id.toString());
-
-            vendorProductsMap.get(vendorId).products.push({
-              productName: product.productName,
-              quantity: orderProduct.quantity,
-              price: productData.price,
-              total: orderProduct.quantity * productData.price
-            });
-          }
-        });
+        console.log('📧 Sending order notification emails...');
 
         // Send email to each vendor
         for (const [vendorId, vendorData] of vendorProductsMap) {
-          await emailService.sendVendorOrderNotification({
-            vendorEmail: vendorData.vendorEmail,
-            vendorName: vendorData.vendorName,
-            order: order.toObject(),
-            products: vendorData.products
-          });
+          try {
+            await emailService.sendVendorOrderNotification({
+              vendorEmail: vendorData.vendorEmail,
+              vendorName: vendorData.vendorName,
+              order: order.toObject(),
+              products: vendorData.products
+            });
+            console.log(`✅ Vendor notification sent to: ${vendorData.vendorEmail}`);
+          } catch (vendorEmailError) {
+            console.error(`❌ Failed to send email to vendor ${vendorData.vendorEmail}:`, vendorEmailError);
+          }
         }
 
         // Send confirmation email to customer
         const customer = order.userId as any;
         if (customer && customer.email) {
-          await emailService.sendCustomerOrderConfirmation(
-            customer.email,
-            customer.name || data.fullName,
-            order.toObject()
-          );
+          try {
+            await emailService.sendCustomerOrderConfirmation(
+              customer.email,
+              customer.name || data.fullName,
+              order.toObject()
+            );
+            console.log(`✅ Customer confirmation sent to: ${customer.email}`);
+          } catch (customerEmailError) {
+            console.error(`❌ Failed to send email to customer ${customer.email}:`, customerEmailError);
+          }
+        }
+
+        // Send notification to admin
+        const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER;
+        if (adminEmail) {
+          try {
+            await emailService.sendAdminOrderNotification(adminEmail, order.toObject());
+            console.log(`✅ Admin notification sent to: ${adminEmail}`);
+          } catch (adminEmailError) {
+            console.error(`❌ Failed to send email to admin:`, adminEmailError);
+          }
         }
       } catch (emailError) {
-        console.error('Error sending order notification emails:', emailError);
+        console.error('❌ Error in email notification process:', emailError);
+        // Don't throw - order is already created
       }
 
       return order;
     } catch (error) {
       await session.abortTransaction();
-      console.error('Error creating order:', error);
+      console.error('❌ Error creating order:', error);
       throw error;
     } finally {
       session.endSession();
@@ -544,7 +360,15 @@ export class OrderService {
     data: IUpdateOrderStatus
   ): Promise<IOrder> {
     const order = await Order.findById(orderId)
-      .populate('products.productId', 'userId'); // Changed from vendorId to userId
+      .populate('userId', 'name email')
+      .populate({
+        path: 'products.productId',
+        select: 'userId productName',
+        populate: {
+          path: 'userId',
+          select: '_id name email businessName'
+        }
+      });
 
     if (!order) {
       throw new Error('Order not found');
@@ -552,6 +376,8 @@ export class OrderService {
 
     // Validate status transition
     this.validateStatusTransition(order.status, data.status);
+
+    const previousStatus = order.status;
 
     // Update status
     order.status = data.status;
@@ -574,29 +400,86 @@ export class OrderService {
 
       // Create vendor earning when order is delivered
       try {
-        // Get vendor ID from the first product's userId field
-        const firstProduct = order.products[0] as any;
+        console.log(`📦 Order ${order.orderNumber} marked as DELIVERED. Creating vendor earnings...`);
 
-        if (firstProduct?.productId?.userId) {
-          const vendorId = firstProduct.productId.userId.toString();
+        // Get unique vendors from products
+        const vendorIds = new Set<string>();
+        const vendorOrderAmounts = new Map<string, number>();
 
-          // Create vendor earning (90% to vendor, 10% platform commission)
-          await payoutService.createVendorEarning(
-            vendorId,
-            (order._id as any).toString(),
-            order.orderNumber,
-            order.grandTotal
-          );
+        for (const orderProduct of order.products) {
+          const product = orderProduct.productId as any;
 
-          console.log(`Vendor earning created for order ${order.orderNumber}`);
+          if (product?.userId?._id) {
+            const vendorId = product.userId._id.toString();
+            vendorIds.add(vendorId);
+
+            // Calculate vendor's share of this order based on their products
+            const currentAmount = vendorOrderAmounts.get(vendorId) || 0;
+            vendorOrderAmounts.set(vendorId, currentAmount + orderProduct.total);
+          }
+        }
+
+        if (vendorIds.size === 0) {
+          console.error(`❌ No vendors found for order ${order.orderNumber}`);
+        } else {
+          console.log(`Found ${vendorIds.size} vendor(s) for order ${order.orderNumber}`);
+
+          // Create earnings for each vendor based on their products
+          for (const vendorId of vendorIds) {
+            const vendorAmount = vendorOrderAmounts.get(vendorId) || 0;
+
+            try {
+              const earning = await payoutService.createVendorEarning(
+                vendorId,
+                (order._id as any).toString(),
+                order.orderNumber,
+                vendorAmount
+              );
+
+              console.log(`✅ Vendor earning created for vendor ${vendorId}. Amount: ${earning.vendorShare} BHD (90% of ${vendorAmount} BHD)`);
+            } catch (vendorError) {
+              console.error(`❌ Error creating earning for vendor ${vendorId}:`, vendorError);
+            }
+          }
+
+          // Create admin commission record (10% of total order)
+          try {
+            await payoutService.createAdminCommission(
+              (order._id as any).toString(),
+              order.orderNumber,
+              order.grandTotal
+            );
+            console.log(`✅ Admin commission recorded for order ${order.orderNumber}`);
+          } catch (commissionError) {
+            console.error(`❌ Error creating admin commission:`, commissionError);
+          }
         }
       } catch (error) {
-        console.error('Error creating vendor earning:', error);
+        console.error('❌ Error creating vendor earning:', error);
         // Don't throw error to prevent order status update failure
       }
     }
 
     await order.save();
+
+    // Send email notification to customer about status change
+    try {
+      const customer = order.userId as any;
+      if (customer && customer.email) {
+        await emailService.sendOrderStatusUpdateEmail(
+          customer.email,
+          customer.name || order.shippingAddress.fullName,
+          order.toObject(),
+          previousStatus,
+          data.status
+        );
+        console.log(`✅ Status update email sent to customer: ${customer.email}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Error sending status update email:', emailError);
+      // Don't throw - order is already updated
+    }
+
     return order;
   }
 
@@ -605,7 +488,9 @@ export class OrderService {
     session.startTransaction();
 
     try {
-      const order = await Order.findById(orderId).session(session);
+      const order = await Order.findById(orderId)
+        .populate('userId', 'name email')
+        .session(session);
 
       if (!order) {
         throw new Error('Order not found');
@@ -633,6 +518,7 @@ export class OrderService {
           order.id.toString(),
           `Refund for cancelled order ${order.orderNumber}`
         );
+        console.log(`✅ Refunded ${order.grandTotal} BHD to wallet for cancelled order ${order.orderNumber}`);
       }
 
       // Update status to cancelled
@@ -646,6 +532,22 @@ export class OrderService {
 
       await order.save({ session });
       await session.commitTransaction();
+
+      // Send cancellation email to customer
+      try {
+        const customer = order.userId as any;
+        if (customer && customer.email) {
+          await emailService.sendOrderCancellationEmail(
+            customer.email,
+            customer.name || order.shippingAddress.fullName,
+            order.toObject(),
+            reason
+          );
+          console.log(`✅ Cancellation email sent to customer: ${customer.email}`);
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending cancellation email:', emailError);
+      }
 
       return order;
     } catch (error) {
@@ -676,7 +578,8 @@ export class OrderService {
     orderId: string,
     data: any
   ): Promise<any> {
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId)
+      .populate('userId', 'name email');
 
     if (!order) {
       throw new Error('Order not found');
@@ -703,6 +606,23 @@ export class OrderService {
         timestamp: new Date(),
         note: 'Payment completed - Order confirmed'
       });
+
+      // Send confirmation email
+      try {
+        const customer = order.userId as any;
+        if (customer && customer.email) {
+          await emailService.sendOrderStatusUpdateEmail(
+            customer.email,
+            customer.name || order.shippingAddress.fullName,
+            order.toObject(),
+            OrderStatus.PENDING,
+            OrderStatus.CONFIRMED
+          );
+          console.log(`✅ Payment confirmation email sent to customer: ${customer.email}`);
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending payment confirmation email:', emailError);
+      }
     }
 
     await order.save();
@@ -765,8 +685,8 @@ export class OrderService {
       outForDelivery,
       delivered,
       cancelled,
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      averageOrderValue: Math.round(averageOrderValue * 100) / 100
+      totalRevenue: Math.round(totalRevenue * 1000) / 1000,
+      averageOrderValue: Math.round(averageOrderValue * 1000) / 1000
     };
   }
 
@@ -804,7 +724,7 @@ export class OrderService {
 
     return {
       totalOrders,
-      totalSpent: Math.round(totalSpent * 100) / 100,
+      totalSpent: Math.round(totalSpent * 1000) / 1000,
       pendingOrders,
       completedOrders
     };
@@ -819,6 +739,146 @@ export class OrderService {
       .limit(limit);
 
     return orders;
+  }
+
+  // Add this method to order.service.ts
+
+  async getVendorOrders(vendorId: string, filters?: { status?: OrderStatus; paymentStatus?: PaymentStatus }): Promise<IOrder[]> {
+    try {
+      // First, get all products that belong to this vendor
+      const Product = mongoose.model('Product');
+      const vendorProducts = await Product.find({
+        userId: new mongoose.Types.ObjectId(vendorId)
+      }).select('_id');
+
+      const vendorProductIds = vendorProducts.map(p => p._id);
+
+      if (vendorProductIds.length === 0) {
+        // Vendor has no products, return empty array
+        return [];
+      }
+
+      // Build query to find orders containing vendor's products
+      const query: any = {
+        'products.productId': { $in: vendorProductIds }
+      };
+
+      // Apply additional filters if provided
+      if (filters?.status) {
+        query.status = filters.status;
+      }
+
+      if (filters?.paymentStatus) {
+        query.paymentStatus = filters.paymentStatus;
+      }
+
+      // Fetch orders
+      const orders = await Order.find(query)
+        .populate('userId', 'name email phone')
+        .populate({
+          path: 'products.productId',
+          select: 'productName mainImageUrl pricePerUnit specialPrice userId'
+        })
+        .populate('shippingMethodId', 'name code trackingUrl')
+        .sort({ createdAt: -1 });
+
+      // Filter products in each order to only show vendor's products
+      const filteredOrders = orders.map(order => {
+        const orderObj = order.toObject() as any;
+        orderObj.products = orderObj.products.filter((p: any) =>
+          vendorProductIds.some(vpId => vpId.toString() === p.productId._id.toString())
+        );
+
+        // Recalculate totals based on vendor's products only
+        const vendorTotal = orderObj.products.reduce((sum: number, p: any) => sum + p.total, 0);
+        orderObj.vendorTotal = vendorTotal;
+
+        return orderObj;
+      });
+
+      return filteredOrders as any;
+    } catch (error) {
+      console.error('Error fetching vendor orders:', error);
+      throw error;
+    }
+  }
+
+  async getVendorOrderStats(vendorId: string): Promise<any> {
+    try {
+      // Get all products that belong to this vendor
+      const Product = mongoose.model('Product');
+      const vendorProducts = await Product.find({
+        userId: new mongoose.Types.ObjectId(vendorId)
+      }).select('_id');
+
+      const vendorProductIds = vendorProducts.map(p => p._id);
+
+      if (vendorProductIds.length === 0) {
+        return {
+          totalOrders: 0,
+          pending: 0,
+          confirmed: 0,
+          preparingForShipment: 0,
+          outForDelivery: 0,
+          delivered: 0,
+          cancelled: 0,
+          totalRevenue: 0,
+          averageOrderValue: 0
+        };
+      }
+
+      // Build base query
+      const baseQuery = {
+        'products.productId': { $in: vendorProductIds }
+      };
+
+      // Get order counts by status
+      const totalOrders = await Order.countDocuments(baseQuery);
+      const pending = await Order.countDocuments({ ...baseQuery, status: OrderStatus.PENDING });
+      const confirmed = await Order.countDocuments({ ...baseQuery, status: OrderStatus.CONFIRMED });
+      const preparingForShipment = await Order.countDocuments({
+        ...baseQuery,
+        status: OrderStatus.PREPARING_FOR_SHIPMENT
+      });
+      const outForDelivery = await Order.countDocuments({
+        ...baseQuery,
+        status: OrderStatus.OUT_FOR_DELIVERY
+      });
+      const delivered = await Order.countDocuments({ ...baseQuery, status: OrderStatus.DELIVERED });
+      const cancelled = await Order.countDocuments({ ...baseQuery, status: OrderStatus.CANCELLED });
+
+      // Calculate revenue from vendor's products only
+      const orders = await Order.find({
+        ...baseQuery,
+        status: { $ne: OrderStatus.CANCELLED }
+      });
+
+      let totalRevenue = 0;
+      orders.forEach(order => {
+        order.products.forEach(product => {
+          if (vendorProductIds.some(vpId => vpId.toString() === product.productId.toString())) {
+            totalRevenue += product.total;
+          }
+        });
+      });
+
+      const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      return {
+        totalOrders,
+        pending,
+        confirmed,
+        preparingForShipment,
+        outForDelivery,
+        delivered,
+        cancelled,
+        totalRevenue: Math.round(totalRevenue * 1000) / 1000,
+        averageOrderValue: Math.round(averageOrderValue * 1000) / 1000
+      };
+    } catch (error) {
+      console.error('Error fetching vendor order stats:', error);
+      throw error;
+    }
   }
 
   private validateStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus): void {
@@ -847,3 +907,5 @@ export class OrderService {
     }
   }
 }
+
+export const orderService = new OrderService();

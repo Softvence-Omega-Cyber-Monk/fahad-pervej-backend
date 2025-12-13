@@ -14,7 +14,7 @@ export interface IProduct extends Document {
     specialPrice?: number,
     specialPriceStartingDate?: Date | string,
     specialPriceEndingDate?: Date | string,
-    mainImageUrl: string,
+    mainImageUrl?: string,
     sideImageUrl?: string,
     sideImage2Url?: string,
     lastImageUrl?: string,

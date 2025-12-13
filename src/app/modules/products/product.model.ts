@@ -53,8 +53,7 @@ const productSchema = new Schema<IProduct>({
         type: Date 
     },
     mainImageUrl: { 
-        type: String, 
-        required: true 
+        type: String
     },
     sideImageUrl: { 
         type: String 

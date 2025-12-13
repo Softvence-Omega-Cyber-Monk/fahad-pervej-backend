@@ -1,287 +1,415 @@
 // src/controllers/cms.controller.ts
+import { Request, Response } from 'express';
+import { Topbar, Hero, Footer } from './cms.model'; // Fixed path
 
-import { Request, Response, NextFunction } from 'express';
-import { ICMSPageCreate, ICMSPageUpdate } from './cms.interface';
-import { CMSService } from './cms.service';
+// ========== TOPBAR CONTROLLERS ==========
+export const getTopbar = async (req: Request, res: Response) => {
+  try {
+    const topbar = await Topbar.findOne({ isActive: true }).sort({ createdAt: -1 });
+    
+    if (!topbar) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active topbar found',
+      });
+    }
 
-export class CMSController {
-  private cmsService: CMSService;
-
-  constructor() {
-    this.cmsService = new CMSService();
+    res.status(200).json({
+      success: true,
+      data: topbar,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching topbar',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
+};
 
-  // Get all CMS pages
-  getAllPages = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const query = {
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 10,
-        search: (req.query.search as string) || '',
-        isActive:
-          req.query.isActive === 'true'
-            ? true
-            : req.query.isActive === 'false'
-            ? false
-            : undefined,
-        sortBy: (req.query.sortBy as string) || 'createdAt',
-        sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
-      };
+export const createTopbar = async (req: Request, res: Response) => {
+  try {
+    const { backgroundColor, textColor, content, isActive } = req.body;
 
-      const result = await this.cmsService.getAllPages(query);
-
-      res.status(200).json({
-        success: true,
-        message: 'CMS pages retrieved successfully',
-        ...result,
-      });
-    } catch (error) {
-      next(error);
+    // If this topbar is active, deactivate all others
+    if (isActive) {
+      await Topbar.updateMany({}, { isActive: false });
     }
-  };
 
-  // Get single CMS page by ID
-  getPageById = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const pageId = parseInt(req.params.id);
+    const topbar = await Topbar.create({
+      backgroundColor,
+      textColor,
+      content,
+      isActive,
+    });
 
-      if (isNaN(pageId)) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid page ID',
-        });
-        return;
-      }
+    res.status(201).json({
+      success: true,
+      message: 'Topbar created successfully',
+      data: topbar,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating topbar',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      const page = await this.cmsService.getPageById(pageId);
+export const updateTopbar = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { backgroundColor, textColor, content, isActive } = req.body;
 
-      if (!page) {
-        res.status(404).json({
-          success: false,
-          message: 'Page not found',
-        });
-        return;
-      }
-
-      res.status(200).json({
-        success: true,
-        message: 'Page retrieved successfully',
-        data: page,
-      });
-    } catch (error) {
-      next(error);
+    // If this topbar is being set to active, deactivate all others
+    if (isActive) {
+      await Topbar.updateMany({ _id: { $ne: id } }, { isActive: false });
     }
-  };
 
-  // Get page by URL key
-  getPageByUrlKey = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const { urlKey } = req.params;
+    const topbar = await Topbar.findByIdAndUpdate(
+      id,
+      { backgroundColor, textColor, content, isActive },
+      { new: true, runValidators: true }
+    );
 
-      const page = await this.cmsService.getPageByUrlKey(urlKey);
-
-      if (!page) {
-        res.status(404).json({
-          success: false,
-          message: 'Page not found',
-        });
-        return;
-      }
-
-      res.status(200).json({
-        success: true,
-        message: 'Page retrieved successfully',
-        data: page,
+    if (!topbar) {
+      return res.status(404).json({
+        success: false,
+        message: 'Topbar not found',
       });
-    } catch (error) {
-      next(error);
     }
-  };
 
-  // Create new CMS page
-  createPage = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const data: ICMSPageCreate = req.body;
+    res.status(200).json({
+      success: true,
+      message: 'Topbar updated successfully',
+      data: topbar,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating topbar',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      const page = await this.cmsService.createPage(data);
+export const getAllTopbars = async (req: Request, res: Response) => {
+  try {
+    const topbars = await Topbar.find().sort({ createdAt: -1 });
 
-      res.status(201).json({
-        success: true,
-        message: 'Page created successfully',
-        data: page,
+    res.status(200).json({
+      success: true,
+      data: topbars,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching topbars',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const deleteTopbar = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const topbar = await Topbar.findByIdAndDelete(id);
+
+    if (!topbar) {
+      return res.status(404).json({
+        success: false,
+        message: 'Topbar not found',
       });
-    } catch (error: any) {
-      if (error.message === 'URL key already exists') {
-        res.status(409).json({
-          success: false,
-          message: error.message,
-        });
-        return;
-      }
-      next(error);
     }
-  };
 
-  // Update CMS page
-  updatePage = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const pageId = parseInt(req.params.id);
-      const data: ICMSPageUpdate = req.body;
+    res.status(200).json({
+      success: true,
+      message: 'Topbar deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting topbar',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      if (isNaN(pageId)) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid page ID',
-        });
-        return;
-      }
-
-      const page = await this.cmsService.updatePage(pageId, data);
-
-      if (!page) {
-        res.status(404).json({
-          success: false,
-          message: 'Page not found',
-        });
-        return;
-      }
-
-      res.status(200).json({
-        success: true,
-        message: 'Page updated successfully',
-        data: page,
+// ========== HERO CONTROLLERS ==========
+export const getHero = async (req: Request, res: Response) => {
+  try {
+    const hero = await Hero.findOne({ isActive: true }).sort({ createdAt: -1 });
+    
+    if (!hero) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active hero section found',
       });
-    } catch (error: any) {
-      if (error.message === 'URL key already exists') {
-        res.status(409).json({
-          success: false,
-          message: error.message,
-        });
-        return;
-      }
-      next(error);
     }
-  };
 
-  // Delete CMS page
-  deletePage = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const pageId = parseInt(req.params.id);
+    res.status(200).json({
+      success: true,
+      data: hero,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching hero section',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      if (isNaN(pageId)) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid page ID',
-        });
-        return;
-      }
+export const createHero = async (req: Request, res: Response) => {
+  try {
+    const { title, description, image, buttonText, buttonLink, isActive, overlayOpacity } = req.body;
 
-      const deleted = await this.cmsService.deletePage(pageId);
+    // If this hero is active, deactivate all others
+    if (isActive) {
+      await Hero.updateMany({}, { isActive: false });
+    }
 
-      if (!deleted) {
-        res.status(404).json({
-          success: false,
-          message: 'Page not found',
-        });
-        return;
-      }
+    const hero = await Hero.create({
+      title,
+      description,
+      image,
+      buttonText,
+      buttonLink,
+      isActive,
+      overlayOpacity,
+    });
 
-      res.status(200).json({
-        success: true,
-        message: 'Page deleted successfully',
+    res.status(201).json({
+      success: true,
+      message: 'Hero section created successfully',
+      data: hero,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating hero section',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const updateHero = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { title, description, image, buttonText, buttonLink, isActive, overlayOpacity } = req.body;
+
+    // If this hero is being set to active, deactivate all others
+    if (isActive) {
+      await Hero.updateMany({ _id: { $ne: id } }, { isActive: false });
+    }
+
+    const hero = await Hero.findByIdAndUpdate(
+      id,
+      { title, description, image, buttonText, buttonLink, isActive, overlayOpacity },
+      { new: true, runValidators: true }
+    );
+
+    if (!hero) {
+      return res.status(404).json({
+        success: false,
+        message: 'Hero section not found',
       });
-    } catch (error) {
-      next(error);
     }
-  };
 
-  // Delete multiple pages
-  deletePages = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const { ids } = req.body;
+    res.status(200).json({
+      success: true,
+      message: 'Hero section updated successfully',
+      data: hero,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating hero section',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      if (!Array.isArray(ids) || ids.length === 0) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid IDs array',
-        });
-        return;
-      }
+export const getAllHeroes = async (req: Request, res: Response) => {
+  try {
+    const heroes = await Hero.find().sort({ createdAt: -1 });
 
-      const deletedCount = await this.cmsService.deletePages(ids);
+    res.status(200).json({
+      success: true,
+      data: heroes,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching hero sections',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      res.status(200).json({
-        success: true,
-        message: `${deletedCount} page(s) deleted successfully`,
-        deletedCount,
+export const deleteHero = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const hero = await Hero.findByIdAndDelete(id);
+
+    if (!hero) {
+      return res.status(404).json({
+        success: false,
+        message: 'Hero section not found',
       });
-    } catch (error) {
-      next(error);
     }
-  };
 
-  // Toggle page active status
-  togglePageStatus = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
-    try {
-      const pageId = parseInt(req.params.id);
+    res.status(200).json({
+      success: true,
+      message: 'Hero section deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting hero section',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      if (isNaN(pageId)) {
-        res.status(400).json({
-          success: false,
-          message: 'Invalid page ID',
-        });
-        return;
-      }
-
-      const page = await this.cmsService.togglePageStatus(pageId);
-
-      if (!page) {
-        res.status(404).json({
-          success: false,
-          message: 'Page not found',
-        });
-        return;
-      }
-
-      res.status(200).json({
-        success: true,
-        message: 'Page status updated successfully',
-        data: page,
+// ========== FOOTER CONTROLLERS ==========
+export const getFooter = async (req: Request, res: Response) => {
+  try {
+    const footer = await Footer.findOne({ isActive: true }).sort({ createdAt: -1 });
+    
+    if (!footer) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active footer found',
       });
-    } catch (error) {
-      next(error);
     }
-  };
-}
+
+    res.status(200).json({
+      success: true,
+      data: footer,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching footer',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const createFooter = async (req: Request, res: Response) => {
+  try {
+    const { logo, description, address, email, phone, socialLinks, copyright, isActive } = req.body;
+
+    // If this footer is active, deactivate all others
+    if (isActive) {
+      await Footer.updateMany({}, { isActive: false });
+    }
+
+    const footer = await Footer.create({
+      logo,
+      description,
+      address,
+      email,
+      phone,
+      socialLinks,
+      copyright,
+      isActive,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Footer created successfully',
+      data: footer,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating footer',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const updateFooter = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { logo, description, address, email, phone, socialLinks, copyright, isActive } = req.body;
+
+    // If this footer is being set to active, deactivate all others
+    if (isActive) {
+      await Footer.updateMany({ _id: { $ne: id } }, { isActive: false });
+    }
+
+    const footer = await Footer.findByIdAndUpdate(
+      id,
+      { logo, description, address, email, phone, socialLinks, copyright, isActive },
+      { new: true, runValidators: true }
+    );
+
+    if (!footer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Footer not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Footer updated successfully',
+      data: footer,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating footer',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const getAllFooters = async (req: Request, res: Response) => {
+  try {
+    const footers = await Footer.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: footers,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching footers',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+export const deleteFooter = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const footer = await Footer.findByIdAndDelete(id);
+
+    if (!footer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Footer not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Footer deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting footer',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};

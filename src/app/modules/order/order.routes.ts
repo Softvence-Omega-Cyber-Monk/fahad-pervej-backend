@@ -729,6 +729,141 @@ router.put('/admin/:id/payment-status', controller.updatePaymentStatus);
  */
 router.put('/admin/:id/payment-history', ValidationMiddleware.validateObjectId, controller.updatePaymentWithHistory);
 
+// Add these routes to order.routes.ts (after the /my-stats route)
+
+/**
+ * @swagger
+ * /orders/vendor/my-orders:
+ *   get:
+ *     summary: Get logged-in vendor's orders
+ *     description: Retrieve all orders containing products that belong to the authenticated vendor. Each order is filtered to show only the vendor's products and includes calculated vendor total.
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, CONFIRMED, PREPARING_FOR_SHIPMENT, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
+ *         description: Filter orders by status
+ *         example: CONFIRMED
+ *       - in: query
+ *         name: paymentStatus
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, COMPLETED, FAILED, REFUNDED]
+ *         description: Filter orders by payment status
+ *         example: COMPLETED
+ *     responses:
+ *       200:
+ *         description: List of vendor's orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 12
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       orderNumber:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       paymentStatus:
+ *                         type: string
+ *                       products:
+ *                         type: array
+ *                         description: Only products belonging to this vendor
+ *                       vendorTotal:
+ *                         type: number
+ *                         description: Total amount for vendor's products only
+ *                       shippingAddress:
+ *                         type: object
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Access denied - only vendors can access this endpoint
+ *       500:
+ *         description: Server error
+ */
+router.get('/vendor/my-orders', verifyToken, authorizeRoles('VENDOR', 'ADMIN'), controller.getMyVendorOrders);
+
+/**
+ * @swagger
+ * /orders/vendor/my-stats:
+ *   get:
+ *     summary: Get statistics for logged-in vendor's orders
+ *     description: Retrieve comprehensive statistics for orders containing the vendor's products, including total orders by status, total revenue from vendor's products, and average order value.
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Vendor order statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: integer
+ *                       example: 45
+ *                       description: Total number of orders containing vendor's products
+ *                     pending:
+ *                       type: integer
+ *                       example: 5
+ *                     confirmed:
+ *                       type: integer
+ *                       example: 8
+ *                     preparingForShipment:
+ *                       type: integer
+ *                       example: 12
+ *                     outForDelivery:
+ *                       type: integer
+ *                       example: 7
+ *                     delivered:
+ *                       type: integer
+ *                       example: 10
+ *                     cancelled:
+ *                       type: integer
+ *                       example: 3
+ *                     totalRevenue:
+ *                       type: number
+ *                       example: 5420.500
+ *                       description: Total revenue from vendor's products only
+ *                     averageOrderValue:
+ *                       type: number
+ *                       example: 120.456
+ *                       description: Average revenue per order from vendor's products
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Access denied - only vendors can access this endpoint
+ *       500:
+ *         description: Server error
+ */
+router.get('/vendor/my-stats', verifyToken, authorizeRoles('VENDOR', 'ADMIN'), controller.getMyVendorOrderStats);
+
 /**
  * @swagger
  * /orders/admin/{id}:

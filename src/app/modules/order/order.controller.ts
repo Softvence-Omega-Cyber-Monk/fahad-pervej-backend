@@ -210,7 +210,7 @@ export class OrderController {
   getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const userId = (req as any).user?.id;
-      
+
       if (!userId) {
         res.status(401).json({
           success: false,
@@ -461,6 +461,86 @@ export class OrderController {
       res.status(500).json({
         success: false,
         error: 'Failed to fetch recent orders'
+      });
+    }
+  };
+  // Add these methods to order.controller.ts
+
+  getMyVendorOrders = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const vendorId = req.user?.id;
+
+      if (!vendorId) {
+        res.status(401).json({
+          success: false,
+          error: 'User not authenticated'
+        });
+        return;
+      }
+
+      // Check if user is a vendor
+      if (req.user?.role !== 'VENDOR' && req.user?.role !== 'ADMIN') {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied. Only vendors can access this endpoint.'
+        });
+        return;
+      }
+
+      const { status, paymentStatus } = req.query;
+      const filters: any = {};
+
+      if (status) filters.status = status as OrderStatus;
+      if (paymentStatus) filters.paymentStatus = paymentStatus as PaymentStatus;
+
+      const orders = await this.service.getVendorOrders(vendorId, filters);
+
+      res.status(200).json({
+        success: true,
+        count: orders.length,
+        data: orders
+      });
+    } catch (error) {
+      console.error('Error fetching vendor orders:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch vendor orders'
+      });
+    }
+  };
+
+  getMyVendorOrderStats = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const vendorId = req.user?.id;
+
+      if (!vendorId) {
+        res.status(401).json({
+          success: false,
+          error: 'User not authenticated'
+        });
+        return;
+      }
+
+      // Check if user is a vendor
+      if (req.user?.role !== 'VENDOR' && req.user?.role !== 'ADMIN') {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied. Only vendors can access this endpoint.'
+        });
+        return;
+      }
+
+      const stats = await this.service.getVendorOrderStats(vendorId);
+
+      res.status(200).json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      console.error('Error fetching vendor order stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch vendor order statistics'
       });
     }
   };

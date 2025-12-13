@@ -1,83 +1,152 @@
 // src/models/cms.model.ts
-
 import mongoose, { Schema, Document } from 'mongoose';
-import { ICMSPage } from './cms.interface';
 
-export interface ICMSPageDocument extends Omit<ICMSPage, 'pageId'>, Document {
-  pageId: number;
+// Topbar CMS Interface
+export interface ITopbar extends Document {
+  backgroundColor: string;
+  textColor: string;
+  content: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const CMSPageSchema = new Schema<ICMSPageDocument>(
+// Hero CMS Interface
+export interface IHero extends Document {
+  title: string;
+  description: string;
+  image: string;
+  buttonText: string;
+  buttonLink: string;
+  isActive: boolean;
+  overlayOpacity: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Footer CMS Interface
+export interface IFooter extends Document {
+  logo: string;
+  description: string;
+  address: string;
+  email: string;
+  phone: string;
+  socialLinks: {
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    linkedin?: string;
+  };
+  copyright: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Topbar Schema
+const TopbarSchema = new Schema<ITopbar>(
   {
-    pageId: {
-      type: Number,
-      unique: true,
-    },
-    pageTitle: {
+    backgroundColor: {
       type: String,
-      required: [true, 'Page title is required'],
-      trim: true,
-      maxlength: [200, 'Page title cannot exceed 200 characters'],
+      required: true,
+      default: '#000000',
     },
-    urlKey: {
+    textColor: {
       type: String,
-      required: [true, 'URL key is required'],
-      unique: true,
-      trim: true,
-      lowercase: true,
-      match: [
-        /^[a-z0-9-]+$/,
-        'URL key can only contain lowercase letters, numbers, and hyphens',
-      ],
+      required: true,
+      default: '#FFFFFF',
     },
     content: {
       type: String,
-      required: [true, 'Content is required'],
-    },
-    mainTitle: {
-      type: String,
-      required: [true, 'Main title is required'],
-      trim: true,
-      maxlength: [300, 'Main title cannot exceed 300 characters'],
-    },
-    metaKeywords: {
-      type: String,
-      trim: true,
-      maxlength: [500, 'Meta keywords cannot exceed 500 characters'],
-    },
-    metaDescription: {
-      type: String,
-      trim: true,
-      maxlength: [1000, 'Meta description cannot exceed 1000 characters'],
+      required: true,
+      default: 'Welcome to MDItems',
     },
     isActive: {
       type: Boolean,
       default: true,
     },
   },
+  { timestamps: true }
+);
+
+// Hero Schema
+const HeroSchema = new Schema<IHero>(
   {
-    timestamps: true,
-    versionKey: false,
-  }
+    title: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+      required: true,
+    },
+    image: {
+      type: String,
+      required: true,
+    },
+    buttonText: {
+      type: String,
+      default: 'Start Shopping Now',
+    },
+    buttonLink: {
+      type: String,
+      default: '/shop',
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    overlayOpacity: {
+      type: Number,
+      default: 0.6,
+      min: 0,
+      max: 1,
+    },
+  },
+  { timestamps: true }
 );
 
-// Auto-increment ID
-CMSPageSchema.pre('save', async function (next) {
-  if (!this.pageId) {
-    const lastPage = await CMSPageModel.findOne().sort({ pageId: -1 });
-    this.pageId = lastPage ? lastPage.pageId + 1 : 1;
-  }
-  next();
-});
-
-// Indexes for performance
-CMSPageSchema.index({ pageTitle: 1 });
-CMSPageSchema.index({ urlKey: 1 });
-CMSPageSchema.index({ isActive: 1 });
-CMSPageSchema.index({ createdAt: -1 });
-CMSPageSchema.index({ pageId: 1 });
-
-export const CMSPageModel = mongoose.model<ICMSPageDocument>(
-  'CMSPage',
-  CMSPageSchema
+// Footer Schema
+const FooterSchema = new Schema<IFooter>(
+  {
+    logo: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+      required: true,
+    },
+    address: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+    },
+    socialLinks: {
+      facebook: String,
+      twitter: String,
+      instagram: String,
+      linkedin: String,
+    },
+    copyright: {
+      type: String,
+      default: 'MDItems. All rights reserved.',
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { timestamps: true }
 );
+
+export const Topbar = mongoose.model<ITopbar>('Topbar', TopbarSchema);
+export const Hero = mongoose.model<IHero>('Hero', HeroSchema);
+export const Footer = mongoose.model<IFooter>('Footer', FooterSchema);

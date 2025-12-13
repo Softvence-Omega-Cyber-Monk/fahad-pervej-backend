@@ -7,7 +7,6 @@ import cors from "cors";
 import { setupSwagger } from "./app/config/swagger";
 import { UserRoutes } from "./app/modules/users/user.routes";
 import { ProductRoutes } from "./app/modules/products/product.routes";
-import { CMSRoutes } from "./app/modules/cms/cms.routes";
 import { WishlistRoutes } from "./app/modules/wishlist/wishlist.routes";
 import { CategoryRoute } from "./app/modules/category/category.route";
 import { ReviewRoutes } from "./app/modules/review/review.routes";
@@ -22,6 +21,8 @@ import { WalletRoutes } from "./app/modules/wallet/wallet.routes";
 import { PolicyRoutes } from "./app/modules/policy/policy.routes";
 import { PartnerRoutes } from "./app/modules/partners/partners.routes";
 import { shippingRoutes } from "./app/modules/shipping/shipping.routes";
+import { PayoutRoutes } from "./app/modules/payout/payout.routes";
+import { CMSRouter } from "./app/modules/cms/cms.routes";
 
 dotenv.config();
 
@@ -50,7 +51,6 @@ setupSwagger(app);
 // ✅ Routes
 app.use("/api/v1/users", UserRoutes);
 app.use("/api/v1/products", ProductRoutes);
-app.use("/api/v1/cms", CMSRoutes);
 app.use("/api/v1/wishlist", WishlistRoutes);
 app.use("/api/v1/category", CategoryRoute);
 app.use("/api/v1/reviews", ReviewRoutes);
@@ -65,6 +65,8 @@ app.use("/api/v1/wallet", WalletRoutes);
 app.use("/api/v1/policy", PolicyRoutes)
 app.use("/api/v1/partners", PartnerRoutes)
 app.use("/api/v1/shipping", shippingRoutes)
+app.use("/api/v1/payouts", PayoutRoutes)
+app.use("/api/v1/cms", CMSRouter)
 // ✅ Default route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json("Welcome to multivendor medicine app");
