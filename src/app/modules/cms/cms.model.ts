@@ -38,6 +38,9 @@ export interface IFooter extends Document {
     linkedin?: string;
   };
   copyright: string;
+  privacyPolicy: string;
+  shippingPolicy: string;
+  refundPolicy: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -138,6 +141,21 @@ const FooterSchema = new Schema<IFooter>(
     copyright: {
       type: String,
       default: 'MDItems. All rights reserved.',
+    },
+    privacyPolicy: {
+      type: String,
+      required: true,
+      default: '',
+    },
+    shippingPolicy: {
+      type: String,
+      required: true,
+      default: '',
+    },
+    refundPolicy: {
+      type: String,
+      required: true,
+      default: '',
     },
     isActive: {
       type: Boolean,

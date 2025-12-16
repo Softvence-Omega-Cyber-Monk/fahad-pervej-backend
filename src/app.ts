@@ -67,6 +67,8 @@ app.use("/api/v1/partners", PartnerRoutes)
 app.use("/api/v1/shipping", shippingRoutes)
 app.use("/api/v1/payouts", PayoutRoutes)
 app.use("/api/v1/cms", CMSRouter)
+
+
 // ✅ Default route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json("Welcome to multivendor medicine app");

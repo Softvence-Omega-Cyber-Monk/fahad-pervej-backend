@@ -1,16 +1,19 @@
 // src/controllers/cms.controller.ts
 import { Request, Response } from 'express';
-import { Topbar, Hero, Footer } from './cms.model'; // Fixed path
+import { Topbar, Hero, Footer } from './cms.model';
 
 // ========== TOPBAR CONTROLLERS ==========
 export const getTopbar = async (req: Request, res: Response) => {
   try {
-    const topbar = await Topbar.findOne({ isActive: true }).sort({ createdAt: -1 });
+    let topbar = await Topbar.findOne({ isActive: true }).sort({ createdAt: -1 });
     
+    // If no topbar exists, create a default one
     if (!topbar) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active topbar found',
+      topbar = await Topbar.create({
+        backgroundColor: '#000000',
+        textColor: '#FFFFFF',
+        content: 'Welcome to MDItems',
+        isActive: true,
       });
     }
 
@@ -27,56 +30,32 @@ export const getTopbar = async (req: Request, res: Response) => {
   }
 };
 
-export const createTopbar = async (req: Request, res: Response) => {
-  try {
-    const { backgroundColor, textColor, content, isActive } = req.body;
-
-    // If this topbar is active, deactivate all others
-    if (isActive) {
-      await Topbar.updateMany({}, { isActive: false });
-    }
-
-    const topbar = await Topbar.create({
-      backgroundColor,
-      textColor,
-      content,
-      isActive,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Topbar created successfully',
-      data: topbar,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error creating topbar',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
 export const updateTopbar = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { backgroundColor, textColor, content, isActive } = req.body;
+    const { backgroundColor, textColor, content } = req.body;
 
-    // If this topbar is being set to active, deactivate all others
-    if (isActive) {
-      await Topbar.updateMany({ _id: { $ne: id } }, { isActive: false });
+    // Validation
+    if (!backgroundColor || !textColor || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required: backgroundColor, textColor, content',
+      });
     }
 
-    const topbar = await Topbar.findByIdAndUpdate(
-      id,
-      { backgroundColor, textColor, content, isActive },
-      { new: true, runValidators: true }
-    );
+    // Find the active topbar and update it, or create if none exists
+    let topbar = await Topbar.findOne({ isActive: true });
 
-    if (!topbar) {
-      return res.status(404).json({
-        success: false,
-        message: 'Topbar not found',
+    if (topbar) {
+      topbar.backgroundColor = backgroundColor;
+      topbar.textColor = textColor;
+      topbar.content = content;
+      await topbar.save();
+    } else {
+      topbar = await Topbar.create({
+        backgroundColor,
+        textColor,
+        content,
+        isActive: true,
       });
     }
 
@@ -94,58 +73,21 @@ export const updateTopbar = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllTopbars = async (req: Request, res: Response) => {
-  try {
-    const topbars = await Topbar.find().sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: topbars,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching topbars',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-export const deleteTopbar = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const topbar = await Topbar.findByIdAndDelete(id);
-
-    if (!topbar) {
-      return res.status(404).json({
-        success: false,
-        message: 'Topbar not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Topbar deleted successfully',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting topbar',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
 // ========== HERO CONTROLLERS ==========
 export const getHero = async (req: Request, res: Response) => {
   try {
-    const hero = await Hero.findOne({ isActive: true }).sort({ createdAt: -1 });
+    let hero = await Hero.findOne({ isActive: true }).sort({ createdAt: -1 });
     
+    // If no hero exists, create a default one
     if (!hero) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active hero section found',
+      hero = await Hero.create({
+        title: 'Welcome to MDItems',
+        description: 'Your one-stop shop for quality products',
+        image: 'https://via.placeholder.com/1920x600',
+        buttonText: 'Start Shopping Now',
+        buttonLink: '/shop',
+        overlayOpacity: 0.6,
+        isActive: true,
       });
     }
 
@@ -162,59 +104,38 @@ export const getHero = async (req: Request, res: Response) => {
   }
 };
 
-export const createHero = async (req: Request, res: Response) => {
-  try {
-    const { title, description, image, buttonText, buttonLink, isActive, overlayOpacity } = req.body;
-
-    // If this hero is active, deactivate all others
-    if (isActive) {
-      await Hero.updateMany({}, { isActive: false });
-    }
-
-    const hero = await Hero.create({
-      title,
-      description,
-      image,
-      buttonText,
-      buttonLink,
-      isActive,
-      overlayOpacity,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Hero section created successfully',
-      data: hero,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error creating hero section',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
 export const updateHero = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { title, description, image, buttonText, buttonLink, isActive, overlayOpacity } = req.body;
+    const { title, description, image, buttonText, buttonLink, overlayOpacity } = req.body;
 
-    // If this hero is being set to active, deactivate all others
-    if (isActive) {
-      await Hero.updateMany({ _id: { $ne: id } }, { isActive: false });
+    // Validation
+    if (!title || !description || !image) {
+      return res.status(400).json({
+        success: false,
+        message: 'Required fields: title, description, image',
+      });
     }
 
-    const hero = await Hero.findByIdAndUpdate(
-      id,
-      { title, description, image, buttonText, buttonLink, isActive, overlayOpacity },
-      { new: true, runValidators: true }
-    );
+    // Find the active hero and update it, or create if none exists
+    let hero = await Hero.findOne({ isActive: true });
 
-    if (!hero) {
-      return res.status(404).json({
-        success: false,
-        message: 'Hero section not found',
+    if (hero) {
+      hero.title = title;
+      hero.description = description;
+      hero.image = image;
+      hero.buttonText = buttonText || hero.buttonText;
+      hero.buttonLink = buttonLink || hero.buttonLink;
+      hero.overlayOpacity = overlayOpacity !== undefined ? overlayOpacity : hero.overlayOpacity;
+      await hero.save();
+    } else {
+      hero = await Hero.create({
+        title,
+        description,
+        image,
+        buttonText: buttonText || 'Start Shopping Now',
+        buttonLink: buttonLink || '/shop',
+        overlayOpacity: overlayOpacity !== undefined ? overlayOpacity : 0.6,
+        isActive: true,
       });
     }
 
@@ -232,58 +153,25 @@ export const updateHero = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllHeroes = async (req: Request, res: Response) => {
-  try {
-    const heroes = await Hero.find().sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: heroes,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching hero sections',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-export const deleteHero = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const hero = await Hero.findByIdAndDelete(id);
-
-    if (!hero) {
-      return res.status(404).json({
-        success: false,
-        message: 'Hero section not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Hero section deleted successfully',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting hero section',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
 // ========== FOOTER CONTROLLERS ==========
 export const getFooter = async (req: Request, res: Response) => {
   try {
-    const footer = await Footer.findOne({ isActive: true }).sort({ createdAt: -1 });
+    let footer = await Footer.findOne({ isActive: true }).sort({ createdAt: -1 });
     
+    // If no footer exists, create a default one
     if (!footer) {
-      return res.status(404).json({
-        success: false,
-        message: 'No active footer found',
+      footer = await Footer.create({
+        logo: 'https://via.placeholder.com/150x50',
+        description: 'Your trusted online shopping destination',
+        address: '123 Main Street, City, Country',
+        email: 'info@mditems.com',
+        phone: '+1 234 567 8900',
+        socialLinks: {},
+        copyright: '© 2024 MDItems. All rights reserved.',
+        privacyPolicy: 'Add your privacy policy here',
+        shippingPolicy: 'Add your shipping policy here',
+        refundPolicy: 'Add your refund policy here',
+        isActive: true,
       });
     }
 
@@ -300,60 +188,46 @@ export const getFooter = async (req: Request, res: Response) => {
   }
 };
 
-export const createFooter = async (req: Request, res: Response) => {
-  try {
-    const { logo, description, address, email, phone, socialLinks, copyright, isActive } = req.body;
-
-    // If this footer is active, deactivate all others
-    if (isActive) {
-      await Footer.updateMany({}, { isActive: false });
-    }
-
-    const footer = await Footer.create({
-      logo,
-      description,
-      address,
-      email,
-      phone,
-      socialLinks,
-      copyright,
-      isActive,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Footer created successfully',
-      data: footer,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error creating footer',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
 export const updateFooter = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { logo, description, address, email, phone, socialLinks, copyright, isActive } = req.body;
+    const { logo, description, address, email, phone, socialLinks, copyright, privacyPolicy, shippingPolicy, refundPolicy } = req.body;
 
-    // If this footer is being set to active, deactivate all others
-    if (isActive) {
-      await Footer.updateMany({ _id: { $ne: id } }, { isActive: false });
+    // Validation
+    if (!logo || !description || !address || !email || !phone || !copyright || !privacyPolicy || !shippingPolicy || !refundPolicy) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required: logo, description, address, email, phone, copyright, privacyPolicy, shippingPolicy, refundPolicy',
+      });
     }
 
-    const footer = await Footer.findByIdAndUpdate(
-      id,
-      { logo, description, address, email, phone, socialLinks, copyright, isActive },
-      { new: true, runValidators: true }
-    );
+    // Find the active footer and update it, or create if none exists
+    let footer = await Footer.findOne({ isActive: true });
 
-    if (!footer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Footer not found',
+    if (footer) {
+      footer.logo = logo;
+      footer.description = description;
+      footer.address = address;
+      footer.email = email;
+      footer.phone = phone;
+      footer.socialLinks = socialLinks || footer.socialLinks;
+      footer.copyright = copyright;
+      footer.privacyPolicy = privacyPolicy;
+      footer.shippingPolicy = shippingPolicy;
+      footer.refundPolicy = refundPolicy;
+      await footer.save();
+    } else {
+      footer = await Footer.create({
+        logo,
+        description,
+        address,
+        email,
+        phone,
+        socialLinks: socialLinks || {},
+        copyright,
+        privacyPolicy,
+        shippingPolicy,
+        refundPolicy,
+        isActive: true,
       });
     }
 
@@ -369,47 +243,4 @@ export const updateFooter = async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
-};
-
-export const getAllFooters = async (req: Request, res: Response) => {
-  try {
-    const footers = await Footer.find().sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: footers,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching footers',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-export const deleteFooter = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const footer = await Footer.findByIdAndDelete(id);
-
-    if (!footer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Footer not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Footer deleted successfully',
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting footer',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
+}
