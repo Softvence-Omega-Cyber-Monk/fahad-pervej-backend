@@ -69,6 +69,15 @@ app.use("/api/v1/payouts", PayoutRoutes)
 app.use("/api/v1/cms", CMSRouter)
 
 
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+  });
+});
+
+
 // ✅ Default route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json("Welcome to multivendor medicine app");
