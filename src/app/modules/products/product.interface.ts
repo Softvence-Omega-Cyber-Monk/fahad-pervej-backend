@@ -37,6 +37,12 @@ export interface IProduct extends Document {
   length?: number;
   weight: number;
   userId: Schema.Types.ObjectId;
+  
+  // ✨ NEW: Product Marking Features
+  isSpecial: boolean;
+  isTrending: boolean;
+  isBestSeller: boolean;
+  isMDItemsLive: boolean;
 }
 
 export type IBulkProduct = IProduct[];

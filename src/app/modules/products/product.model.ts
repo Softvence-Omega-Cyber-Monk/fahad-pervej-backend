@@ -48,8 +48,20 @@ const productSchema = new Schema<IProduct>({
   length: { type: Number },
   weight: { type: Number, required: true },
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  
+  // ✨ NEW: Product Marking Features
+  isSpecial: { type: Boolean, default: false },
+  isTrending: { type: Boolean, default: false },
+  isBestSeller: { type: Boolean, default: false },
+  isMDItemsLive: { type: Boolean, default: false },
 }, {
   timestamps: true
 });
+
+// Create indexes for faster filtering
+productSchema.index({ isSpecial: 1 });
+productSchema.index({ isTrending: 1 });
+productSchema.index({ isBestSeller: 1 });
+productSchema.index({ isMDItemsLive: 1 });
 
 export const ProductModel = model<IProduct>("Product", productSchema);

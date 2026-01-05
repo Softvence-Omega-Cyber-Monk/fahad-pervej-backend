@@ -5,75 +5,75 @@ import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 class ProductController {
   // ✅ Create a new product with Cloudinary upload
   async createProduct(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user.id;
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-    const imageUrls: any = {};
+    try {
+      const userId = (req as any).user.id;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const imageUrls: any = {};
 
-    // Upload files to Cloudinary
-    if (files?.mainImage?.[0])
-      imageUrls.mainImageUrl = await uploadToCloudinary(files.mainImage[0].path);
-    if (files?.sideImage?.[0])
-      imageUrls.sideImageUrl = await uploadToCloudinary(files.sideImage[0].path);
-    if (files?.sideImage2?.[0])
-      imageUrls.sideImage2Url = await uploadToCloudinary(files.sideImage2[0].path);
-    if (files?.lastImage?.[0])
-      imageUrls.lastImageUrl = await uploadToCloudinary(files.lastImage[0].path);
-    if (files?.video?.[0])
-      imageUrls.videoUrl = await uploadToCloudinary(files.video[0].path);
+      // Upload files to Cloudinary
+      if (files?.mainImage?.[0])
+        imageUrls.mainImageUrl = await uploadToCloudinary(files.mainImage[0].path);
+      if (files?.sideImage?.[0])
+        imageUrls.sideImageUrl = await uploadToCloudinary(files.sideImage[0].path);
+      if (files?.sideImage2?.[0])
+        imageUrls.sideImage2Url = await uploadToCloudinary(files.sideImage2[0].path);
+      if (files?.lastImage?.[0])
+        imageUrls.lastImageUrl = await uploadToCloudinary(files.lastImage[0].path);
+      if (files?.video?.[0])
+        imageUrls.videoUrl = await uploadToCloudinary(files.video[0].path);
 
-    // Parse country pricing if it's a JSON string
-    let countryPricing = req.body.countryPricing;
-    if (typeof countryPricing === 'string') {
-      try {
-        countryPricing = JSON.parse(countryPricing);
-      } catch (e) {
+      // Parse country pricing if it's a JSON string
+      let countryPricing = req.body.countryPricing;
+      if (typeof countryPricing === 'string') {
+        try {
+          countryPricing = JSON.parse(countryPricing);
+        } catch (e) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Invalid country pricing format" 
+          });
+        }
+      }
+
+      // Validate country pricing
+      if (!countryPricing || !Array.isArray(countryPricing) || countryPricing.length === 0) {
         return res.status(400).json({ 
           success: false, 
-          message: "Invalid country pricing format" 
+          message: "At least one country with pricing is required" 
         });
       }
-    }
 
-    // Validate country pricing
-    if (!countryPricing || !Array.isArray(countryPricing) || countryPricing.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "At least one country with pricing is required" 
-      });
-    }
-
-    // Parse available countries
-    let availableCountries = req.body.availableCountries;
-    if (typeof availableCountries === 'string') {
-      try {
-        availableCountries = JSON.parse(availableCountries);
-      } catch (e) {
-        availableCountries = countryPricing.map((cp: any) => cp.country);
+      // Parse available countries
+      let availableCountries = req.body.availableCountries;
+      if (typeof availableCountries === 'string') {
+        try {
+          availableCountries = JSON.parse(availableCountries);
+        } catch (e) {
+          availableCountries = countryPricing.map((cp: any) => cp.country);
+        }
       }
+
+      // Merge form data with Cloudinary URLs
+      const productData = {
+        ...req.body,
+        ...imageUrls,
+        countryPricing,
+        availableCountries,
+        userId,
+      };
+
+      const product = await productService.createProduct(productData);
+
+      res.status(201).json({
+        success: true,
+        message: "Product created successfully",
+        data: product,
+      });
+    } catch (err: any) {
+      console.error("Create Product Error:", err);
+      res.status(400).json({ success: false, message: err.message });
     }
-
-    // Merge form data with Cloudinary URLs
-    const productData = {
-      ...req.body,
-      ...imageUrls,
-      countryPricing,
-      availableCountries,
-      userId,
-    };
-
-    const product = await productService.createProduct(productData);
-
-    res.status(201).json({
-      success: true,
-      message: "Product created successfully",
-      data: product,
-    });
-  } catch (err: any) {
-    console.error("Create Product Error:", err);
-    res.status(400).json({ success: false, message: err.message });
   }
-}
 
   // ✅ Create multiple products (bulk)
   async createBulkProducts(req: Request, res: Response) {
@@ -199,6 +199,46 @@ class ProductController {
       });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  // ✨ NEW: Mark product with features
+  async markProduct(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { isSpecial, isTrending, isBestSeller, isMDItemsLive } = req.body;
+
+      const markData: any = {};
+      if (isSpecial !== undefined) markData.isSpecial = isSpecial;
+      if (isTrending !== undefined) markData.isTrending = isTrending;
+      if (isBestSeller !== undefined) markData.isBestSeller = isBestSeller;
+      if (isMDItemsLive !== undefined) markData.isMDItemsLive = isMDItemsLive;
+
+      const updated = await productService.updateProduct(id, markData);
+      if (!updated)
+        return res.status(404).json({ success: false, message: "Product not found" });
+
+      res.json({
+        success: true,
+        message: "Product marking updated successfully",
+        data: updated,
+      });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  // ✨ NEW: Get products by marking type
+  async getProductsByMark(req: Request, res: Response) {
+    try {
+      const { type } = req.params; // special, trending, bestseller, mditems
+      const products = await productService.getProductsByMark(type);
+      res.json({
+        success: true,
+        data: products,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
     }
   }
 }

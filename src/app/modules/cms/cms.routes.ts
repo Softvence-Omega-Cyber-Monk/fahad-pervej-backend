@@ -6,7 +6,8 @@ import {
   updateHero,
   getFooter,
   updateFooter,
-} from './cms.controller'; 
+} from './cms.controller';
+import { multerUpload } from '../../middlewares/multerUpload';
 
 const router = express.Router();
 
@@ -16,10 +17,10 @@ router.put('/topbar', updateTopbar);
 
 // ========== HERO ROUTES ==========
 router.get('/hero', getHero);
-router.put('/hero', updateHero);
+router.put('/hero', multerUpload.single('image'), updateHero);
 
 // ========== FOOTER ROUTES ==========
 router.get('/footer', getFooter);
-router.put('/footer', updateFooter);
+router.put('/footer', multerUpload.single('logo'), updateFooter);
 
 export const CMSRouter = router;

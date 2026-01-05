@@ -6,22 +6,28 @@ class ProductService {
         const product = await ProductModel.create(data);
         return product
     }
+    
     async createBulkProducts(products: IBulkProduct): Promise<IProduct[]> {
         const inserted = await ProductModel.insertMany(products);
         return inserted
     }
+    
     async getProductById(id: string): Promise<IProduct | null> {
         return ProductModel.findById(id).populate("userId", "name email role").exec()
     }
+    
     async getAllProducts(): Promise<IProduct[]> {
         return ProductModel.find().populate("userId", "name email role").exec()
     }
+    
     async updateProduct(id: string, data: Partial<IProduct>): Promise<IProduct | null> {
         return ProductModel.findByIdAndUpdate(id, data, { new: true }).exec()
     }
+    
     async deleteProduct(id: string): Promise<void> {
         await ProductModel.findByIdAndDelete(id).exec()
     }
+    
     async getProductsByUser(userId: string): Promise<IProduct[]> {
         return ProductModel.find({ userId }).exec();
     }
@@ -40,6 +46,7 @@ class ProductService {
         };
         return formattedProduct;
     }
+    
     async getAllProductsWithSellerName(): Promise<any[]> {
         const products = await ProductModel.find()
             .populate("userId", "name email role")
@@ -53,6 +60,35 @@ class ProductService {
             },
             userId: undefined,
         }));
+    }
+
+    // ✨ NEW: Get products by marking type
+    async getProductsByMark(type: string): Promise<IProduct[]> {
+        const filter: any = {};
+        
+        switch (type.toLowerCase()) {
+            case 'special':
+            case 'specials':
+                filter.isSpecial = true;
+                break;
+            case 'trending':
+                filter.isTrending = true;
+                break;
+            case 'bestseller':
+            case 'best-seller':
+                filter.isBestSeller = true;
+                break;
+            case 'mditems':
+            case 'md-items':
+                filter.isMDItemsLive = true;
+                break;
+            default:
+                throw new Error("Invalid mark type. Use: special, trending, bestseller, or mditems");
+        }
+        
+        return ProductModel.find(filter)
+            .populate("userId", "name email role")
+            .exec();
     }
 }
 

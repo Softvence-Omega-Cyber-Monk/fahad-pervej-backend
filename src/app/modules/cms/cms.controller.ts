@@ -1,6 +1,7 @@
 // src/controllers/cms.controller.ts
 import { Request, Response } from 'express';
 import { Topbar, Hero, Footer } from './cms.model';
+import { uploadToCloudinary } from '../../../utils/cloudinaryUpload';
 
 // ========== TOPBAR CONTROLLERS ==========
 export const getTopbar = async (req: Request, res: Response) => {
@@ -106,35 +107,42 @@ export const getHero = async (req: Request, res: Response) => {
 
 export const updateHero = async (req: Request, res: Response) => {
   try {
-    const { title, description, image, buttonText, buttonLink, overlayOpacity } = req.body;
+    const { title, description, buttonText, buttonLink, overlayOpacity } = req.body;
+    const imageFile = req.file;
 
     // Validation
-    if (!title || !description || !image) {
+    if (!title || !description) {
       return res.status(400).json({
         success: false,
-        message: 'Required fields: title, description, image',
+        message: 'Required fields: title, description',
       });
     }
 
-    // Find the active hero and update it, or create if none exists
+    // Find the active hero
     let hero = await Hero.findOne({ isActive: true });
+
+    // Upload new image if provided
+    let imageUrl = hero?.image || 'https://via.placeholder.com/1920x600';
+    if (imageFile) {
+      imageUrl = await uploadToCloudinary(imageFile.path, 'cms/hero');
+    }
 
     if (hero) {
       hero.title = title;
       hero.description = description;
-      hero.image = image;
+      hero.image = imageUrl;
       hero.buttonText = buttonText || hero.buttonText;
       hero.buttonLink = buttonLink || hero.buttonLink;
-      hero.overlayOpacity = overlayOpacity !== undefined ? overlayOpacity : hero.overlayOpacity;
+      hero.overlayOpacity = overlayOpacity !== undefined ? parseFloat(overlayOpacity) : hero.overlayOpacity;
       await hero.save();
     } else {
       hero = await Hero.create({
         title,
         description,
-        image,
+        image: imageUrl,
         buttonText: buttonText || 'Start Shopping Now',
         buttonLink: buttonLink || '/shop',
-        overlayOpacity: overlayOpacity !== undefined ? overlayOpacity : 0.6,
+        overlayOpacity: overlayOpacity !== undefined ? parseFloat(overlayOpacity) : 0.6,
         isActive: true,
       });
     }
@@ -190,26 +198,33 @@ export const getFooter = async (req: Request, res: Response) => {
 
 export const updateFooter = async (req: Request, res: Response) => {
   try {
-    const { logo, description, address, email, phone, socialLinks, copyright, privacyPolicy, shippingPolicy, refundPolicy } = req.body;
+    const { description, address, email, phone, socialLinks, copyright, privacyPolicy, shippingPolicy, refundPolicy } = req.body;
+    const logoFile = req.file;
 
     // Validation
-    if (!logo || !description || !address || !email || !phone || !copyright || !privacyPolicy || !shippingPolicy || !refundPolicy) {
+    if (!description || !address || !email || !phone || !copyright || !privacyPolicy || !shippingPolicy || !refundPolicy) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: logo, description, address, email, phone, copyright, privacyPolicy, shippingPolicy, refundPolicy',
+        message: 'All fields are required: description, address, email, phone, copyright, privacyPolicy, shippingPolicy, refundPolicy',
       });
     }
 
-    // Find the active footer and update it, or create if none exists
+    // Find the active footer
     let footer = await Footer.findOne({ isActive: true });
 
+    // Upload new logo if provided
+    let logoUrl = footer?.logo || 'https://via.placeholder.com/150x50';
+    if (logoFile) {
+      logoUrl = await uploadToCloudinary(logoFile.path, 'cms/footer');
+    }
+
     if (footer) {
-      footer.logo = logo;
+      footer.logo = logoUrl;
       footer.description = description;
       footer.address = address;
       footer.email = email;
       footer.phone = phone;
-      footer.socialLinks = socialLinks || footer.socialLinks;
+      footer.socialLinks = socialLinks ? JSON.parse(socialLinks) : footer.socialLinks;
       footer.copyright = copyright;
       footer.privacyPolicy = privacyPolicy;
       footer.shippingPolicy = shippingPolicy;
@@ -217,12 +232,12 @@ export const updateFooter = async (req: Request, res: Response) => {
       await footer.save();
     } else {
       footer = await Footer.create({
-        logo,
+        logo: logoUrl,
         description,
         address,
         email,
         phone,
-        socialLinks: socialLinks || {},
+        socialLinks: socialLinks ? JSON.parse(socialLinks) : {},
         copyright,
         privacyPolicy,
         shippingPolicy,
