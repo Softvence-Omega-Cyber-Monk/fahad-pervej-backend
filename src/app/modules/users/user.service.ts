@@ -9,6 +9,12 @@ interface TokenPair {
   refreshToken: string;
 }
 
+interface VendorFiles {
+  CRDocuments?: Express.Multer.File;
+  vendorSignature?: Express.Multer.File;
+  vendorContract?: Express.Multer.File;
+}
+
 export class UserService {
   async registerCustomer(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
     payload.role = "CUSTOMER";
@@ -22,17 +28,126 @@ export class UserService {
     return { user, accessToken, refreshToken };
   }
 
-  async registerVendor(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-    payload.role = "VENDOR";
-    payload.isVerified = false;
-    const existingUser = await UserModel.findOne({ email: payload.email });
-    if (existingUser) throw new Error("Email already exists");
+  async registerVendor(
+    payload: Partial<IUser>,
+    files: VendorFiles
+  ): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
+    // Track uploaded URLs for cleanup on error
+    const uploadedUrls: string[] = [];
+    
+    try {
+      payload.role = "VENDOR";
+      payload.isVerified = false;
+      
+      const existingUser = await UserModel.findOne({ email: payload.email });
+      if (existingUser) {
+        throw new Error("Email already exists");
+      }
 
-    const user = new UserModel(payload);
-    await user.save();
+      // Validate required files
+      if (!files.CRDocuments) {
+        throw new Error("CR Documents are required");
+      }
+      if (!files.vendorSignature) {
+        throw new Error("Vendor signature is required");
+      }
+      if (!files.vendorContract) {
+        throw new Error("Vendor contract is required");
+      }
 
-    const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
-    return { user, accessToken, refreshToken };
+      console.log("📁 Starting file uploads...");
+
+      // Upload CR Documents
+      try {
+        console.log("Uploading CR Documents...");
+        const crDocumentsUrl = await uploadToCloudinary(
+          files.CRDocuments.path,
+          "vendors/cr-documents"
+        );
+        payload.CRDocuments = crDocumentsUrl;
+        uploadedUrls.push(crDocumentsUrl);
+        console.log("✅ CR Documents uploaded");
+      } catch (error) {
+        console.error("❌ CR Documents upload failed:", error);
+        throw new Error(`Failed to upload CR Documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      // Upload Vendor Signature
+      try {
+        console.log("Uploading Vendor Signature...");
+        const signatureUrl = await uploadToCloudinary(
+          files.vendorSignature.path,
+          "vendors/signatures"
+        );
+        payload.vendorSignature = signatureUrl;
+        uploadedUrls.push(signatureUrl);
+        console.log("✅ Vendor Signature uploaded");
+      } catch (error) {
+        console.error("❌ Vendor Signature upload failed:", error);
+        throw new Error(`Failed to upload Vendor Signature: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      // Upload Vendor Contract
+      try {
+        console.log("Uploading Vendor Contract...");
+        const contractUrl = await uploadToCloudinary(
+          files.vendorContract.path,
+          "vendors/contracts"
+        );
+        payload.vendorContract = contractUrl;
+        uploadedUrls.push(contractUrl);
+        console.log("✅ Vendor Contract uploaded");
+      } catch (error) {
+        console.error("❌ Vendor Contract upload failed:", error);
+        throw new Error(`Failed to upload Vendor Contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      console.log("✅ All files uploaded successfully");
+
+      // Create user in database
+      const user = new UserModel(payload);
+      await user.save();
+
+      const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
+      return { user, accessToken, refreshToken };
+      
+    } catch (error) {
+      console.error("🔥 Vendor registration error:", error);
+      
+      // Clean up temp files
+      this.cleanupTempFiles(files);
+      
+      // If error occurred after some uploads, you might want to delete them from Cloudinary
+      // This is optional - Cloudinary files can be managed separately
+      
+      // Re-throw with appropriate message
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Failed to register vendor. Please try again.");
+    }
+  }
+
+  /**
+   * Clean up temporary files
+   */
+  private cleanupTempFiles(files: VendorFiles): void {
+    const filesToClean = [
+      files.CRDocuments?.path,
+      files.vendorSignature?.path,
+      files.vendorContract?.path,
+    ];
+
+    filesToClean.forEach(filePath => {
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`🗑️ Cleaned up temp file: ${filePath}`);
+        } catch (unlinkError) {
+          console.error(`Failed to delete temp file ${filePath}:`, unlinkError);
+        }
+      }
+    });
   }
 
   async login(email: string, password: string): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
@@ -55,7 +170,6 @@ export class UserService {
       const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
       const decoded = jwt.verify(refreshToken, secret) as { id: string; role: string };
 
-      // Verify user still exists and is active
       const user = await UserModel.findById(decoded.id);
       if (!user || !user.isActive) {
         throw new Error("User not found or inactive");
@@ -82,8 +196,6 @@ export class UserService {
   async getPendingVendors(): Promise<IUser[]> {
     return UserModel.find({ role: "VENDOR", isVerified: false });
   }
-
-  // Add this method to the UserService class, after getPendingVendors method
 
   async getPendingVendorById(vendorId: string): Promise<IUser | null> {
     const vendor = await UserModel.findOne({
@@ -118,11 +230,9 @@ export class UserService {
     }
   ): Promise<IUser | null> {
     try {
-      // Prevent role or sensitive changes via this method
       delete payload.role;
       delete payload.isVerified;
 
-      // Handle profile image upload
       if (files?.profileImage && files.profileImage.length > 0) {
         const profileImageUrl = await uploadToCloudinary(
           files.profileImage[0].path,
@@ -131,7 +241,6 @@ export class UserService {
         payload.profileImage = profileImageUrl;
       }
 
-      // Handle store banner upload
       if (files?.storeBanner && files.storeBanner.length > 0) {
         const storeBannerUrl = await uploadToCloudinary(
           files.storeBanner[0].path,
@@ -140,17 +249,14 @@ export class UserService {
         payload.storeBanner = storeBannerUrl;
       }
 
-      // Parse categories if it's a string (from form-data)
       if (payload.categories && typeof payload.categories === 'string') {
         try {
           payload.categories = JSON.parse(payload.categories as string);
         } catch (e) {
-          // If it's not JSON, treat it as a single category
           payload.categories = [payload.categories as unknown as string];
         }
       }
 
-      // Validate holdingTime if provided
       if (payload.holdingTime !== undefined) {
         const holdingTime = Number(payload.holdingTime);
         if (isNaN(holdingTime) || holdingTime < 0) {
@@ -167,7 +273,6 @@ export class UserService {
       if (!updatedUser) throw new Error("User not found");
       return updatedUser;
     } catch (error) {
-      // Clean up uploaded files if update fails
       if (files?.profileImage?.[0]?.path && fs.existsSync(files.profileImage[0].path)) {
         fs.unlinkSync(files.profileImage[0].path);
       }
@@ -186,11 +291,9 @@ export class UserService {
     const user = await UserModel.findById(userId).select("+password");
     if (!user) throw new Error("User not found");
 
-    // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) throw new Error("Current password is incorrect");
 
-    // Update password (pre-save hook should hash it)
     user.password = newPassword;
     await user.save();
   }
@@ -214,12 +317,12 @@ export class UserService {
 
   private generateAccessToken(id: string, role: string): string {
     const secret = process.env.JWT_SECRET || "secretkey";
-    return jwt.sign({ id, role }, secret, { expiresIn: "15m" }); // 15 minutes
+    return jwt.sign({ id, role }, secret, { expiresIn: "15m" });
   }
 
   private generateRefreshToken(id: string, role: string): string {
     const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
-    return jwt.sign({ id, role }, secret, { expiresIn: "7d" }); // 7 days
+    return jwt.sign({ id, role }, secret, { expiresIn: "7d" });
   }
 
   private generateTokens(id: string, role: string): TokenPair {

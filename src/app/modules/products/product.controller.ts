@@ -5,42 +5,75 @@ import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 class ProductController {
   // ✅ Create a new product with Cloudinary upload
   async createProduct(req: Request, res: Response) {
-    try {
-      const userId = (req as any).user.id;
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      const imageUrls: any = {};
+  try {
+    const userId = (req as any).user.id;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const imageUrls: any = {};
 
-      // Upload each file manually to Cloudinary
-      if (files?.mainImage?.[0])
-        imageUrls.mainImageUrl = await uploadToCloudinary(files.mainImage[0].path);
-      if (files?.sideImage?.[0])
-        imageUrls.sideImageUrl = await uploadToCloudinary(files.sideImage[0].path);
-      if (files?.sideImage2?.[0])
-        imageUrls.sideImage2Url = await uploadToCloudinary(files.sideImage2[0].path);
-      if (files?.lastImage?.[0])
-        imageUrls.lastImageUrl = await uploadToCloudinary(files.lastImage[0].path);
-      if (files?.video?.[0])
-        imageUrls.videoUrl = await uploadToCloudinary(files.video[0].path);
+    // Upload files to Cloudinary
+    if (files?.mainImage?.[0])
+      imageUrls.mainImageUrl = await uploadToCloudinary(files.mainImage[0].path);
+    if (files?.sideImage?.[0])
+      imageUrls.sideImageUrl = await uploadToCloudinary(files.sideImage[0].path);
+    if (files?.sideImage2?.[0])
+      imageUrls.sideImage2Url = await uploadToCloudinary(files.sideImage2[0].path);
+    if (files?.lastImage?.[0])
+      imageUrls.lastImageUrl = await uploadToCloudinary(files.lastImage[0].path);
+    if (files?.video?.[0])
+      imageUrls.videoUrl = await uploadToCloudinary(files.video[0].path);
 
-      // Merge form data with Cloudinary URLs
-      const productData = {
-        ...req.body,
-        ...imageUrls,
-        userId,
-      };
-
-      const product = await productService.createProduct(productData);
-
-      res.status(201).json({
-        success: true,
-        message: "Product created successfully",
-        data: product,
-      });
-    } catch (err: any) {
-      console.error("Create Product Error:", err);
-      res.status(400).json({ success: false, message: err.message });
+    // Parse country pricing if it's a JSON string
+    let countryPricing = req.body.countryPricing;
+    if (typeof countryPricing === 'string') {
+      try {
+        countryPricing = JSON.parse(countryPricing);
+      } catch (e) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid country pricing format" 
+        });
+      }
     }
+
+    // Validate country pricing
+    if (!countryPricing || !Array.isArray(countryPricing) || countryPricing.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "At least one country with pricing is required" 
+      });
+    }
+
+    // Parse available countries
+    let availableCountries = req.body.availableCountries;
+    if (typeof availableCountries === 'string') {
+      try {
+        availableCountries = JSON.parse(availableCountries);
+      } catch (e) {
+        availableCountries = countryPricing.map((cp: any) => cp.country);
+      }
+    }
+
+    // Merge form data with Cloudinary URLs
+    const productData = {
+      ...req.body,
+      ...imageUrls,
+      countryPricing,
+      availableCountries,
+      userId,
+    };
+
+    const product = await productService.createProduct(productData);
+
+    res.status(201).json({
+      success: true,
+      message: "Product created successfully",
+      data: product,
+    });
+  } catch (err: any) {
+    console.error("Create Product Error:", err);
+    res.status(400).json({ success: false, message: err.message });
   }
+}
 
   // ✅ Create multiple products (bulk)
   async createBulkProducts(req: Request, res: Response) {

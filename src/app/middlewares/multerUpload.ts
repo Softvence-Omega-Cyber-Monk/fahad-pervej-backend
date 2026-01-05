@@ -30,6 +30,7 @@ const fileFilter = (
 ) => {
   const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo"];
+  const allowedDocumentTypes = ["application/pdf"];
 
   if (file.mimetype.startsWith("video/")) {
     allowedVideoTypes.includes(file.mimetype)
@@ -39,15 +40,17 @@ const fileFilter = (
     allowedImageTypes.includes(file.mimetype)
       ? cb(null, true)
       : cb(new Error("Invalid image format"));
+  } else if (file.mimetype === "application/pdf") {
+    cb(null, true);
   } else {
-    cb(new Error("Unsupported file type"));
+    cb(new Error("Unsupported file type. Only images, videos, and PDFs are allowed."));
   }
 };
 
 export const multerUpload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // 10MB per file, max 5 files
 });
 
 export const multerUploadVideo = multer({

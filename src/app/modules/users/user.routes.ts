@@ -43,12 +43,12 @@ router.post("/register/customer", userController.registerCustomer);
  * @swagger
  * /users/register/vendor:
  *   post:
- *     summary: Register a new vendor
+ *     summary: Register a new vendor with document uploads
  *     tags: [Users]
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -63,34 +63,56 @@ router.post("/register/customer", userController.registerCustomer);
  *               - vendorContract
  *               - isSellerPolicyAccepted
  *             properties:
- *               name: { type: string, example: Jane Vendor }
- *               email: { type: string, example: vendor@example.com }
- *               password: { type: string, example: secret123 }
- *               businessName: { type: string, example: Jane's Store }
- *               businessCRNumber: { type: string, example: CR123456 }
- *               CRDocuments: { type: string, example: "/uploads/cr.pdf" }
- *               businessType: { type: string, example: Retail }
- *               businessDescription: { type: string, example: "Medical supplies" }
- *               country: { type: string, example: USA }
- *               productCategory: { type: array, items: { type: string }, example: ["Analgesics"] }
- *               shippingLocation: { type: array, items: { type: string }, example: ["Local within city state"] }
- *               storeDescription: { type: string, example: "Best meds online" }
- *               paymentMethod: { type: string, example: BANK_ACCOUNT }
- *               bankAccountHolderName: { type: string, example: Jane Vendor }
- *               bankAccountNumber: { type: string, example: 12345678 }
- *               bankRoughingNumber: { type: string, example: 123456789 }
- *               taxId: { type: string, example: TAX12345 }
- *               isPrivacyPolicyAccepted: { type: boolean, example: true }
- *               vendorSignature: { type: string, example: "Jane Vendor" }
- *               vendorContract: { type: string, example: "/uploads/vendor_contract.pdf" }
- *               isSellerPolicyAccepted: { type: boolean, example: true }
- *               address: { type: string, example: "123 Street, City" }
- *               phone: { type: string, example: "+1234567890" }
+ *               name: { type: string }
+ *               email: { type: string }
+ *               password: { type: string }
+ *               phone: { type: string }
+ *               businessName: { type: string }
+ *               businessCRNumber: { type: string }
+ *               businessType: { type: string }
+ *               businessDescription: { type: string }
+ *               country: { type: string }
+ *               CRDocuments:
+ *                 type: string
+ *                 format: binary
+ *                 description: CR document file (PDF/Image)
+ *               productCategory:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               shippingLocation:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               storeDescription: { type: string }
+ *               paymentMethod: { type: string, enum: [Bank Account, Paypal, Stripe] }
+ *               bankAccountHolderName: { type: string }
+ *               bankAccountNumber: { type: string }
+ *               bankRoughingNumber: { type: string }
+ *               taxId: { type: string }
+ *               isPrivacyPolicyAccepted: { type: boolean }
+ *               vendorSignature:
+ *                 type: string
+ *                 format: binary
+ *                 description: Vendor signature file (PDF/Image)
+ *               vendorContract:
+ *                 type: string
+ *                 format: binary
+ *                 description: Signed vendor contract (PDF)
+ *               isSellerPolicyAccepted: { type: boolean }
  *     responses:
  *       201:
  *         description: Vendor registered successfully. Pending verification
  */
-router.post("/register/vendor", userController.registerVendor);
+router.post(
+  "/register/vendor",
+  multerUpload.fields([
+    { name: "CRDocuments", maxCount: 1 },
+    { name: "vendorSignature", maxCount: 1 },
+    { name: "vendorContract", maxCount: 1 },
+  ]),
+  userController.registerVendor
+);
 
 /**
  * @swagger
@@ -131,7 +153,7 @@ router.post("/login", userController.login);
  *           schema:
  *             type: object
  *             properties:
- *               refreshToken: { type: string, example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+ *               refreshToken: { type: string }
  *     responses:
  *       200:
  *         description: Access token refreshed successfully
@@ -183,118 +205,23 @@ router.get("/profile", verifyToken, userController.getProfile);
  *           schema:
  *             type: object
  *             properties:
- *               name: 
- *                 type: string
- *                 example: John Updated
- *               email: 
- *                 type: string
- *                 example: newemail@example.com
- *               address: 
- *                 type: string
- *                 example: "456 New Street, City"
- *               phone: 
- *                 type: string
- *                 example: "+1234567890"
+ *               name: { type: string }
+ *               email: { type: string }
+ *               address: { type: string }
+ *               phone: { type: string }
  *               profileImage:
  *                 type: string
  *                 format: binary
- *                 description: User profile image (JPEG, PNG, WebP, GIF - Max 10MB)
  *               storeBanner:
  *                 type: string
  *                 format: binary
- *                 description: Store banner image (JPEG, PNG, WebP, GIF - Max 10MB)
- *               currency:
- *                 type: string
- *                 example: USD
- *                 description: Preferred currency for transactions
- *               holdingTime:
- *                 type: number
- *                 example: 48
- *                 description: Order holding time in hours
- *               categories:
- *                 type: string
- *                 example: '["Electronics", "Clothing", "Books"]'
- *                 description: Array of product categories (send as JSON string)
- *               language:
- *                 type: string
- *                 example: en
- *                 description: Preferred language
- *               businessName: 
- *                 type: string
- *                 example: "Updated Business Name"
- *               businessCRNumber: 
- *                 type: string
- *                 example: CR789012
- *               CRDocuments: 
- *                 type: string
- *                 example: "/uploads/new-cr.pdf"
- *               businessType: 
- *                 type: string
- *                 example: "Wholesale"
- *               businessDescription: 
- *                 type: string
- *                 example: "Updated business description"
- *               country: 
- *                 type: string
- *                 example: "Canada"
- *               productCategory: 
- *                 type: string
- *                 example: '["Antibiotics", "Analgesics"]'
- *                 description: Medical product categories (send as JSON string)
- *               shippingLocation:
- *                 type: string
- *                 example: '["National within country", "International"]'
- *                 description: Shipping locations (send as JSON string)
- *               storeDescription: 
- *                 type: string
- *                 example: "Premium medical supplies online"
- *               paymentMethod: 
- *                 type: string
- *                 enum: ["Bank Account", "Paypal", "Stripe"]
- *                 example: "Paypal"
- *               bankAccountHolderName: 
- *                 type: string
- *                 example: "John Doe"
- *               bankAccountNumber: 
- *                 type: string
- *                 example: "87654321"
- *               bankRoughingNumber: 
- *                 type: string
- *                 example: "987654321"
- *               taxId: 
- *                 type: string
- *                 example: "TAX67890"
- *               isPrivacyPolicyAccepted: 
- *                 type: boolean
- *                 example: true
- *               vendorSignature: 
- *                 type: string
- *                 example: "John Doe Signature"
- *               vendorContract: 
- *                 type: string
- *                 example: "/uploads/updated_contract.pdf"
- *               isSellerPolicyAccepted: 
- *                 type: boolean
- *                 example: true
- *               orderNotification: 
- *                 type: string
- *                 example: "email"
- *               promotionNotification: 
- *                 type: string
- *                 example: "sms"
- *               communicationAlert: 
- *                 type: string
- *                 example: "push"
- *               newReviewsNotification: 
- *                 type: string
- *                 example: "email"
+ *               currency: { type: string }
+ *               holdingTime: { type: number }
+ *               categories: { type: string, description: "JSON string array" }
+ *               language: { type: string }
  *     responses:
  *       200:
  *         description: Profile updated successfully
- *       400:
- *         description: Invalid input data
- *       401:
- *         description: Unauthorized
  */
 router.patch(
   "/profile", 
@@ -325,16 +252,12 @@ router.patch(
  *               - newPassword
  *               - confirmPassword
  *             properties:
- *               currentPassword: { type: string, example: "oldPassword123" }
- *               newPassword: { type: string, example: "newPassword123" }
- *               confirmPassword: { type: string, example: "newPassword123" }
+ *               currentPassword: { type: string }
+ *               newPassword: { type: string }
+ *               confirmPassword: { type: string }
  *     responses:
  *       200:
  *         description: Password changed successfully
- *       400:
- *         description: Invalid input or password mismatch
- *       401:
- *         description: Current password is incorrect
  */
 router.put("/change-password", verifyToken, userController.changePassword);
 
@@ -342,7 +265,7 @@ router.put("/change-password", verifyToken, userController.changePassword);
  * @swagger
  * /users/deactivate/{id}:
  *   patch:
- *     summary: Deactivate a user with optional reason
+ *     summary: Deactivate a user
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -352,60 +275,38 @@ router.put("/change-password", verifyToken, userController.changePassword);
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID
  *     requestBody:
- *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               reason: { type: string, example: "Requested by admin" }
+ *               reason: { type: string }
  *     responses:
  *       200:
  *         description: User deactivated successfully
  */
 router.patch("/deactivate/:id", verifyToken, authorizeRoles("ADMIN", "VENDOR", "CUSTOMER"), userController.deactivateUser);
 
-// Add this route after the /vendors route (around line 367)
-
 /**
  * @swagger
  * /users/vendors/pending:
  *   get:
- *     summary: Get all pending/unapproved vendors (Admin only)
+ *     summary: Get all pending vendors (Admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of all pending vendors
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden - Admin access required
+ *         description: List of pending vendors
  */
 router.get("/vendors/pending", verifyToken, authorizeRoles("ADMIN"), userController.getPendingVendors);
-
-// Add this route after the /vendors/pending route
 
 /**
  * @swagger
  * /users/vendors/pending/{id}:
  *   get:
- *     summary: Get a single pending/unapproved vendor by ID (Admin only)
+ *     summary: Get a single pending vendor by ID
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -415,39 +316,9 @@ router.get("/vendors/pending", verifyToken, authorizeRoles("ADMIN"), userControl
  *         required: true
  *         schema:
  *           type: string
- *         description: Vendor ID
- *         example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
- *         description: Pending vendor details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   description: Vendor details
- *       404:
- *         description: Pending vendor not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Pending vendor not found"
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden - Admin access required
+ *         description: Pending vendor details
  */
 router.get("/vendors/pending/:id", verifyToken, authorizeRoles("ADMIN"), userController.getPendingVendorById);
 
@@ -464,8 +335,6 @@ router.get("/vendors/pending/:id", verifyToken, authorizeRoles("ADMIN"), userCon
  *         description: List of all vendors
  */
 router.get("/vendors", verifyToken, authorizeRoles("ADMIN"), userController.getAllVendors);
-
-
 
 /**
  * @swagger
@@ -495,7 +364,6 @@ router.get("/customers", verifyToken, authorizeRoles("ADMIN"), userController.ge
  *         required: true
  *         schema:
  *           type: string
- *         description: Vendor ID
  *     responses:
  *       200:
  *         description: Vendor verified successfully
@@ -516,7 +384,6 @@ router.patch("/vendor/verify/:id", verifyToken, authorizeRoles("ADMIN"), userCon
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID
  *     responses:
  *       200:
  *         description: User deleted successfully

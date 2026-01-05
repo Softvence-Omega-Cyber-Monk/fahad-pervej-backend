@@ -5,7 +5,6 @@ import { userService } from "./user.service";
 const getCookieOptions = (maxAge: number) => {
   return {
     httpOnly: true,
-    // secure: process.env.NODE_ENV === "production", // true in production
     secure: true,
     sameSite: "none" as CookieOptions["sameSite"],
     maxAge: maxAge,
@@ -18,7 +17,7 @@ export class UserController {
       const { user, accessToken, refreshToken } = await userService.registerCustomer(req.body);
 
       // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(60 * 24 * 60 * 1000)); // 1 days
+      res.cookie("accessToken", accessToken, getCookieOptions(60 * 24 * 60 * 1000)); // 1 day
       res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
 
       res.status(201).json({
@@ -33,7 +32,72 @@ export class UserController {
 
   async registerVendor(req: Request, res: Response) {
     try {
-      const { user, accessToken, refreshToken } = await userService.registerVendor(req.body);
+      // Extract files from multer
+      const files = req.files as {
+        [fieldname: string]: Express.Multer.File[]
+      };
+
+      const vendorFiles = {
+        CRDocuments: files?.CRDocuments?.[0],
+        vendorSignature: files?.vendorSignature?.[0],
+        vendorContract: files?.vendorContract?.[0],
+      };
+
+      // Parse form data
+      const formData = { ...req.body };
+      
+      // Handle productCategory array - MongoDB ObjectIds
+      if (req.body['productCategory[]']) {
+        const categories = Array.isArray(req.body['productCategory[]']) 
+          ? req.body['productCategory[]'] 
+          : [req.body['productCategory[]']];
+        
+        // Validate that these are valid ObjectIds (24 character hex strings)
+        formData.productCategory = categories.filter((id: string) => {
+          const isValid = /^[0-9a-fA-F]{24}$/.test(id);
+          if (!isValid) {
+            console.warn(`Invalid category ID: ${id}`);
+          }
+          return isValid;
+        });
+        
+        console.log('Product Categories:', formData.productCategory);
+      }
+      
+      // Handle shippingLocation array
+      if (req.body['shippingLocation[]']) {
+        formData.shippingLocation = Array.isArray(req.body['shippingLocation[]'])
+          ? req.body['shippingLocation[]']
+          : [req.body['shippingLocation[]']];
+        
+        console.log('Shipping Locations:', formData.shippingLocation);
+      }
+
+      // Convert string booleans to actual booleans
+      if (formData.isPrivacyPolicyAccepted !== undefined) {
+        formData.isPrivacyPolicyAccepted = formData.isPrivacyPolicyAccepted === 'true';
+      }
+      if (formData.isSellerPolicyAccepted !== undefined) {
+        formData.isSellerPolicyAccepted = formData.isSellerPolicyAccepted === 'true';
+      }
+
+      console.log('Registration Data:', {
+        name: formData.name,
+        email: formData.email,
+        businessName: formData.businessName,
+        productCategories: formData.productCategory?.length || 0,
+        shippingLocations: formData.shippingLocation?.length || 0,
+        files: {
+          CRDocuments: vendorFiles.CRDocuments?.originalname,
+          vendorSignature: vendorFiles.vendorSignature?.originalname,
+          vendorContract: vendorFiles.vendorContract?.originalname,
+        }
+      });
+
+      const { user, accessToken, refreshToken } = await userService.registerVendor(
+        formData,
+        vendorFiles
+      );
 
       // Set tokens in cookies
       res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
@@ -45,6 +109,7 @@ export class UserController {
         data: { user, accessToken, refreshToken },
       });
     } catch (error: any) {
+      console.error('Vendor registration error:', error);
       res.status(400).json({ success: false, message: error.message });
     }
   }
@@ -55,7 +120,7 @@ export class UserController {
       const { user, accessToken, refreshToken } = await userService.login(email, password);
 
       // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(60 * 60 * 1000)); // 15 minutes
+      res.cookie("accessToken", accessToken, getCookieOptions(60 * 60 * 1000)); // 1 hour
       res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
 
       res.json({
@@ -131,8 +196,6 @@ export class UserController {
     }
   }
 
-  // Add this method to the UserController class, after getPendingVendors method
-
   async getPendingVendorById(req: Request, res: Response) {
     try {
       const vendorId = req.params.id;
@@ -154,7 +217,7 @@ export class UserController {
 
   async getProfile(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id || (req as any).user.id;
+      const userId = (req as any).user.id;
       const user = await userService.getUserById(userId);
       res.json({ success: true, data: user });
     } catch (error: any) {
@@ -190,6 +253,7 @@ export class UserController {
       });
     }
   }
+
   async changePassword(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;

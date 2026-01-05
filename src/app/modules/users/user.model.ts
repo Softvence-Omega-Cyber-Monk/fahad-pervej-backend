@@ -1,6 +1,6 @@
 import { Schema, model } from "mongoose";
 import bcrypt from "bcryptjs";
-import { IUser, PaymentMethod, ProductCategory } from "./user.interface";
+import { IUser, PaymentMethod, ShippingLocation } from "./user.interface";
 
 const userSchema = new Schema<IUser>(
   {
@@ -25,12 +25,16 @@ const userSchema = new Schema<IUser>(
     businessType: { type: String },
     businessDescription: { type: String },
     country: { type: String },
+    
+    // FIXED: productCategory is now an array of ObjectId references or strings
     productCategory: {
-      type: [String],
-      enum: Object.values(ProductCategory),
+      type: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
+      default: [],
     },
+    
     shippingLocation: {
-      type: [Object], 
+      type: [String], 
+      default: [],
     },
     storeDescription: { type: String },
     paymentMethod: {
@@ -46,16 +50,16 @@ const userSchema = new Schema<IUser>(
     vendorContract: { type: String },
     isSellerPolicyAccepted: { type: Boolean },
     address: { type: String },
-    orderNotification: {type: String, default: "New Order"},
-    promotionNotification: {type: String, default: "Promotion Notification"},
-    communicationAlert: {type: String, default: "Communication Alerts"},
-    newReviewsNotification: {type: String, default: "New Reviews"},
+    orderNotification: { type: String, default: "New Order" },
+    promotionNotification: { type: String, default: "Promotion Notification" },
+    communicationAlert: { type: String, default: "Communication Alerts" },
+    newReviewsNotification: { type: String, default: "New Reviews" },
     phone: { type: String },
-    language: {type: String, default: "English"},
-    currency: {type: String},
-    holdingTime: {type: Number},
-    categories: {type: [String]},
-    storeBanner: {type: String}
+    language: { type: String, default: "English" },
+    currency: { type: String },
+    holdingTime: { type: Number },
+    categories: { type: [String], default: [] },
+    storeBanner: { type: String }
   },
   {
     timestamps: true,
