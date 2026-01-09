@@ -3,8 +3,8 @@ name: CI/CD For test and deployment
 
 on: 
     push: #trigger when push happens
-        branches: main  #trigger when push code into main branch. it can be array, wildcard or single
-
+        branches:   #trigger when push code into main branch. it can be array, wildcard or single
+            - "**"
 jobs:   #ki ki kaj hobe seta
     test:     #test the code
         name: Test Machine
