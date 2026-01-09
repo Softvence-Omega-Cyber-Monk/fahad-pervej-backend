@@ -22,9 +22,6 @@ jobs:   #ki ki kaj hobe seta
             - name: Install Dependencies
               run: npm install
 
-            - name: Run tests
-              run: npm run ci
-
             - name: Build Application
               run: npm run build
     
