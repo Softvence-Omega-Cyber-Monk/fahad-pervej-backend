@@ -23,7 +23,7 @@ jobs:   #ki ki kaj hobe seta
               run: npm install
 
             - name: Run tests
-              run: npm run ci:fix
+              run: npm run ci
 
             - name: Build Application
               run: npm run build
