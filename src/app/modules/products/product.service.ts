@@ -16,8 +16,15 @@ class ProductService {
         return ProductModel.findById(id).populate("userId", "name email role").exec()
     }
     
-    async getAllProducts(): Promise<IProduct[]> {
-        return ProductModel.find().populate("userId", "name email role").exec()
+    async getAllProducts(userCountry?: string): Promise<IProduct[]> {
+        const query: any = {};
+        
+        // Filter by country if provided
+        if (userCountry) {
+            query.availableCountries = { $in: [userCountry] };
+        }
+        
+        return ProductModel.find(query).populate("userId", "name email role").exec()
     }
     
     async updateProduct(id: string, data: Partial<IProduct>): Promise<IProduct | null> {
@@ -62,9 +69,13 @@ class ProductService {
         }));
     }
 
-    // ✨ NEW: Get products by marking type
-    async getProductsByMark(type: string): Promise<IProduct[]> {
+    async getProductsByMark(type: string, userCountry?: string): Promise<IProduct[]> {
         const filter: any = {};
+        
+        // Filter by country if provided
+        if (userCountry) {
+            filter.availableCountries = { $in: [userCountry] };
+        }
         
         switch (type.toLowerCase()) {
             case 'special':

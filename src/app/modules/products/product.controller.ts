@@ -87,10 +87,11 @@ class ProductController {
     }
   }
 
-  // ✅ Get all products
+  // ✅ Get all products (filtered by user's country)
   async getAllProducts(req: Request, res: Response) {
     try {
-      const products = await productService.getAllProducts();
+      const userCountry = req.query.country as string;
+      const products = await productService.getAllProducts(userCountry);
       res.json({ success: true, data: products });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
@@ -228,11 +229,12 @@ class ProductController {
     }
   }
 
-  // ✨ NEW: Get products by marking type
+  // ✨ NEW: Get products by marking type (filtered by user's country)
   async getProductsByMark(req: Request, res: Response) {
     try {
-      const { type } = req.params; // special, trending, bestseller, mditems
-      const products = await productService.getProductsByMark(type);
+      const { type } = req.params;
+      const userCountry = req.query.country as string;
+      const products = await productService.getProductsByMark(type, userCountry);
       res.json({
         success: true,
         data: products,
