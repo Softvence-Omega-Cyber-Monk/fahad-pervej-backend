@@ -13,7 +13,6 @@
   },
   "author": "",
   "license": "ISC",
-  "description": "",
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
@@ -54,5 +53,14 @@
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",
     "zod": "^4.1.11"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend/issues"
+  },
+  "homepage": "https://github.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend#readme",
+  "description": ""
 }
