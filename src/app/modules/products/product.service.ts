@@ -6,35 +6,30 @@ class ProductService {
         const product = await ProductModel.create(data);
         return product
     }
-    
+
     async createBulkProducts(products: IBulkProduct): Promise<IProduct[]> {
         const inserted = await ProductModel.insertMany(products);
         return inserted
     }
-    
+
     async getProductById(id: string): Promise<IProduct | null> {
         return ProductModel.findById(id).populate("userId", "name email role").exec()
     }
-    
+
     async getAllProducts(userCountry?: string): Promise<IProduct[]> {
         const query: any = {};
-        
-        // Filter by country if provided
-        if (userCountry) {
-            query.availableCountries = { $in: [userCountry] };
-        }
-        
+        query.availableCountries = { $in: [userCountry] };
         return ProductModel.find(query).populate("userId", "name email role").exec()
     }
-    
+
     async updateProduct(id: string, data: Partial<IProduct>): Promise<IProduct | null> {
         return ProductModel.findByIdAndUpdate(id, data, { new: true }).exec()
     }
-    
+
     async deleteProduct(id: string): Promise<void> {
         await ProductModel.findByIdAndDelete(id).exec()
     }
-    
+
     async getProductsByUser(userId: string): Promise<IProduct[]> {
         return ProductModel.find({ userId }).exec();
     }
@@ -53,7 +48,7 @@ class ProductService {
         };
         return formattedProduct;
     }
-    
+
     async getAllProductsWithSellerName(): Promise<any[]> {
         const products = await ProductModel.find()
             .populate("userId", "name email role")
@@ -71,12 +66,12 @@ class ProductService {
 
     async getProductsByMark(type: string, userCountry?: string): Promise<IProduct[]> {
         const filter: any = {};
-        
+
         // Filter by country if provided
         if (userCountry) {
             filter.availableCountries = { $in: [userCountry] };
         }
-        
+
         switch (type.toLowerCase()) {
             case 'special':
             case 'specials':
@@ -96,7 +91,7 @@ class ProductService {
             default:
                 throw new Error("Invalid mark type. Use: special, trending, bestseller, or mditems");
         }
-        
+
         return ProductModel.find(filter)
             .populate("userId", "name email role")
             .exec();

@@ -9,7 +9,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed:cms": "ts-node src/scripts/seedCMS.ts",
     "ci": "eslint .",
-    "ci:fix": "eslint . --fix"
+    "ci:fix": "eslint . --fix",
+    "prod": "node dist/index.js"
   },
   "author": "",
   "license": "ISC",
