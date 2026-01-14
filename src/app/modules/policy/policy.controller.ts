@@ -17,7 +17,7 @@ export class PolicyController {
    */
   createPolicy = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const createdBy = req.user?.name || req.user?.email || req.user?.id || 'Admin';
+      const createdBy = req.user?.name as string || req.user?.email as string || req.user?.id as string || 'Admin';
       
       const data: ICreatePolicy = req.body;
 

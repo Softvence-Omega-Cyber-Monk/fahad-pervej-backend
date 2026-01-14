@@ -1,6 +1,15 @@
 import { Schema, model } from "mongoose";
 import bcrypt from "bcryptjs";
-import { IUser, PaymentMethod, ShippingLocation } from "./user.interface";
+import { IUser, IOriginAddress, PaymentMethod, ShippingLocation } from "./user.interface";
+
+const originAddressSchema = new Schema<IOriginAddress>({
+  Line1: { type: String, required: true },
+  Line2: { type: String },
+  Line3: { type: String },
+  City: { type: String, required: true },
+  PostCode: { type: String, required: true },
+  CountryCode: { type: String, required: true }
+}, { _id: false });
 
 const userSchema = new Schema<IUser>(
   {
@@ -26,7 +35,12 @@ const userSchema = new Schema<IUser>(
     businessDescription: { type: String },
     country: { type: String },
     
-    // FIXED: productCategory is now an array of ObjectId references or strings
+    // Origin Address for vendors
+    originAddress: {
+      type: originAddressSchema,
+      required: false
+    },
+    
     productCategory: {
       type: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
       default: [],

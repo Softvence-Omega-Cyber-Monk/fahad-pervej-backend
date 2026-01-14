@@ -1,6 +1,5 @@
 import { Document, Types } from "mongoose";
 
-// Remove the enum - productCategory should be array of ObjectIds
 export enum ShippingLocation {
     LOCAL = "Local within city state",
     NATIONAL = "National within country",
@@ -11,6 +10,16 @@ export enum PaymentMethod {
     BANK_ACCOUNT = "Bank Account",
     PAYPAL = "Paypal",
     STRIPE = "Stripe"
+}
+
+// Origin Address interface
+export interface IOriginAddress {
+  Line1: string;
+  Line2?: string;
+  Line3?: string;
+  City: string;
+  PostCode: string;
+  CountryCode: string;
 }
 
 export interface IUser extends Document {
@@ -29,9 +38,10 @@ export interface IUser extends Document {
   businessDescription?: string;
   country?: string;
   
-  // Changed: productCategory is now an array of category IDs (strings or ObjectIds)
-  productCategory?: string[] | Types.ObjectId[];
+  // Origin Address for shipping
+  originAddress?: IOriginAddress;
   
+  productCategory?: string[] | Types.ObjectId[];
   shippingLocation?: ShippingLocation[] | string[];
   storeDescription?: string;
   paymentMethod?: PaymentMethod;
@@ -54,8 +64,6 @@ export interface IUser extends Document {
   language: string;
   currency: string;
   holdingTime: number;
-  
-  // categories is for user preferences, different from productCategory
   categories: string[];  
   storeBanner: string;
   

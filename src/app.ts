@@ -23,6 +23,7 @@ import { PartnerRoutes } from "./app/modules/partners/partners.routes";
 import { shippingRoutes } from "./app/modules/shipping/shipping.routes";
 import { PayoutRoutes } from "./app/modules/payout/payout.routes";
 import { CMSRouter } from "./app/modules/cms/cms.routes";
+import { normalizeParams } from "./app/middlewares/normalizeParams.middleware";
 
 dotenv.config();
 
@@ -44,6 +45,8 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true }));
+
+app.use(normalizeParams);
 
 // ✅ Swagger setup
 setupSwagger(app);

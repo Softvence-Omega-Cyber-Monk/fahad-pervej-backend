@@ -7,12 +7,22 @@ interface CartItem {
   height: number;
 }
 
+interface OriginAddress {
+  Line1: string;
+  Line2?: string;
+  Line3?: string;
+  City: string;
+  PostCode: string;
+  CountryCode: string;
+}
+
 interface ShippingCalculationRequest {
   cartItems: CartItem[];
   destinationCity: string;
   destinationCountry: string;
   destinationAddress: string;
   destinationPostCode: string;
+  originAddress?: OriginAddress | null; // NEW: Optional origin address from vendor
 }
 
 interface ShippingRate {
@@ -40,6 +50,21 @@ const ARAMEX_CONFIG = {
 };
 
 const ARAMEX_PROVIDER_ID = '6902ded28dc8ab84fb8481ee';
+
+// Currency mapping based on country
+const getCurrencyForCountry = (country: string): string => {
+  const currencyMap: { [key: string]: string } = {
+    'Bahrain': 'BHD',
+    'Saudi Arabia': 'SAR',
+    'UAE': 'AED',
+    'United Arab Emirates': 'AED',
+    'Kuwait': 'KWD',
+    'Oman': 'OMR',
+    'Qatar': 'QAR',
+    'Bangladesh': 'BDT'
+  };
+  return currencyMap[country] || 'BHD';
+};
 
 // Helper Functions
 const calculateDimWeight = (length: number, width: number, height: number): number => {
@@ -79,7 +104,8 @@ const getCountryCode = (country: string): string => {
     'United Arab Emirates': 'AE',
     'Kuwait': 'KW',
     'Oman': 'OM',
-    'Qatar': 'QA'
+    'Qatar': 'QA',
+    'Bangladesh': 'BD'
   };
   return countryMap[country] || 'BH';
 };
@@ -113,7 +139,14 @@ const parseAddress = (address: string): { line1: string; line2: string; line3: s
 export const calculateAramexShippingRate = async (
   params: ShippingCalculationRequest
 ): Promise<any> => {
-  const { cartItems, destinationCity, destinationCountry, destinationAddress, destinationPostCode } = params;
+  const { 
+    cartItems, 
+    destinationCity, 
+    destinationCountry, 
+    destinationAddress, 
+    destinationPostCode,
+    originAddress // NEW: Use vendor's origin address
+  } = params;
   
   if (!cartItems || cartItems.length === 0) {
     throw new Error('No cart items provided');
@@ -127,6 +160,18 @@ export const calculateAramexShippingRate = async (
   const countryCode = getCountryCode(destinationCountry);
   const { productGroup, productType } = getProductType(destinationCountry);
   const addressLines = parseAddress(destinationAddress);
+  const currency = getCurrencyForCountry(destinationCountry);
+  
+  // Use vendor's origin address if provided, otherwise use default
+  const finalOriginAddress = originAddress;
+  
+  console.log('Using origin address:', finalOriginAddress);
+  
+  // Validate that all required fields are present
+  if (!finalOriginAddress?.Line1 || !finalOriginAddress?.City || !finalOriginAddress?.PostCode || !finalOriginAddress?.CountryCode) {
+    console.error('Invalid origin address - missing required fields:', finalOriginAddress);
+    throw new Error('Origin address must have Line1, City, PostCode, and CountryCode');
+  }
   
   try {
     const requestBody = {
@@ -140,12 +185,12 @@ export const calculateAramexShippingRate = async (
         AccountCountryCode: ARAMEX_CONFIG.accountCountryCode
       },
       OriginAddress: {
-        Line1: 'Building 100',
-        Line2: 'Road 200',
-        Line3: 'Block 301',
-        City: 'Manama',
-        PostCode: '123',
-        CountryCode: 'BH'
+        Line1: finalOriginAddress?.Line1,
+        Line2: finalOriginAddress?.Line2 || '',
+        Line3: finalOriginAddress?.Line3 || '',
+        City: finalOriginAddress?.City,
+        PostCode: finalOriginAddress?.PostCode,
+        CountryCode: finalOriginAddress?.CountryCode
       },
       DestinationAddress: {
         Line1: addressLines.line1,
@@ -157,7 +202,7 @@ export const calculateAramexShippingRate = async (
       },
       ShipmentDetails: {
         DescriptionOfGoods: 'General Goods',
-        GoodsOriginCountry: 'BH',
+        GoodsOriginCountry: finalOriginAddress?.CountryCode,
         PaymentOptions: '',
         ActualWeight: {
           Value: packageDetails.actualWeight.toString(),
@@ -178,7 +223,7 @@ export const calculateAramexShippingRate = async (
           Unit: 'CM'
         }
       },
-      PreferredCurrencyCode: 'BHD'
+      PreferredCurrencyCode: currency
     };
 
     console.log('Aramex Request:', JSON.stringify(requestBody, null, 2));
@@ -209,7 +254,7 @@ export const calculateAramexShippingRate = async (
       name: 'Aramex',
       logo: '📦',
       price: parseFloat(totalAmount),
-      currency: 'BHD',
+      currency: currency,
       deliveryDays: destinationCountry === 'Bahrain' ? '2-3' : '4-6',
       description: destinationCountry === 'Bahrain' 
         ? 'Domestic express courier service' 

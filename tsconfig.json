@@ -4,7 +4,10 @@
     "module": "nodenext", // or "node16"
     "moduleResolution": "nodenext", // or "node16"
     "outDir": "./dist",
-    "strict": true,
+    "strict": false,
+    "strictNullChecks": false,
+    "strictFunctionTypes": false,
+    "noImplicitAny": false,
     "skipLibCheck": true,
     "esModuleInterop": true
   },

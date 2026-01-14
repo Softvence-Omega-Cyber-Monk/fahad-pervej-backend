@@ -48,15 +48,29 @@ export class UserController {
       
       // Handle productCategory array - MongoDB ObjectIds
       if (req.body['productCategory[]']) {
-        const categories = Array.isArray(req.body['productCategory[]']) 
-          ? req.body['productCategory[]'] 
-          : [req.body['productCategory[]']];
+        let categories = req.body['productCategory[]'];
+        
+        // If it's a string (JSON), parse it
+        if (typeof categories === 'string') {
+          try {
+            categories = JSON.parse(categories);
+          } catch (e) {
+            // If parsing fails, treat it as a single value
+            categories = [categories];
+          }
+        }
+        
+        // Ensure it's an array
+        if (!Array.isArray(categories)) {
+          categories = [categories];
+        }
         
         // Validate that these are valid ObjectIds (24 character hex strings)
+        // Filter out any non-ObjectId values like 'consumables'
         formData.productCategory = categories.filter((id: string) => {
           const isValid = /^[0-9a-fA-F]{24}$/.test(id);
           if (!isValid) {
-            console.warn(`Invalid category ID: ${id}`);
+            console.warn(`Skipping invalid category ID: ${id}`);
           }
           return isValid;
         });
@@ -73,6 +87,20 @@ export class UserController {
         console.log('Shipping Locations:', formData.shippingLocation);
       }
 
+      // Parse originAddress from JSON string
+      if (req.body.originAddress) {
+        try {
+          formData.originAddress = JSON.parse(req.body.originAddress);
+          console.log('Origin Address:', formData.originAddress);
+        } catch (parseError) {
+          console.error('Failed to parse originAddress:', parseError);
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid origin address format' 
+          });
+        }
+      }
+
       // Convert string booleans to actual booleans
       if (formData.isPrivacyPolicyAccepted !== undefined) {
         formData.isPrivacyPolicyAccepted = formData.isPrivacyPolicyAccepted === 'true';
@@ -85,6 +113,7 @@ export class UserController {
         name: formData.name,
         email: formData.email,
         businessName: formData.businessName,
+        originAddress: formData.originAddress,
         productCategories: formData.productCategory?.length || 0,
         shippingLocations: formData.shippingLocation?.length || 0,
         files: {
