@@ -7,6 +7,39 @@ import {
   PayoutMethod 
 } from './payout.interface';
 
+// Currency Balance Sub-Schema
+const currencyBalanceSchema = new Schema({
+  currency: {
+    type: String,
+    required: true,
+    uppercase: true
+  },
+  availableBalance: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Available balance cannot be negative']
+  },
+  pendingBalance: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Pending balance cannot be negative']
+  },
+  totalEarned: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Total earned cannot be negative']
+  },
+  totalWithdrawn: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Total withdrawn cannot be negative']
+  }
+}, { _id: false });
+
 // Bank Details Schema
 const bankDetailsSchema = new Schema({
   accountHolderName: {
@@ -42,7 +75,7 @@ const bankDetailsSchema = new Schema({
   }
 }, { _id: false });
 
-// Payout Request Schema
+// Payout Request Schema - Added currency index
 const payoutRequestSchema = new Schema<IPayoutRequest>(
   {
     vendorId: {
@@ -59,8 +92,8 @@ const payoutRequestSchema = new Schema<IPayoutRequest>(
     currency: {
       type: String,
       required: true,
-      default: 'BHD',
-      uppercase: true
+      uppercase: true,
+      index: true // NEW INDEX
     },
     payoutMethod: {
       type: String,
@@ -118,11 +151,11 @@ const payoutRequestSchema = new Schema<IPayoutRequest>(
 );
 
 // Indexes
-payoutRequestSchema.index({ vendorId: 1, status: 1 });
+payoutRequestSchema.index({ vendorId: 1, status: 1, currency: 1 }); // UPDATED
 payoutRequestSchema.index({ requestedDate: -1 });
 payoutRequestSchema.index({ createdAt: -1 });
 
-// Vendor Earning Schema
+// Vendor Earning Schema - Already has currency
 const vendorEarningSchema = new Schema<IVendorEarning>(
   {
     vendorId: {
@@ -160,8 +193,8 @@ const vendorEarningSchema = new Schema<IVendorEarning>(
     currency: {
       type: String,
       required: true,
-      default: 'BHD',
-      uppercase: true
+      uppercase: true,
+      index: true
     },
     earnedDate: {
       type: Date,
@@ -185,11 +218,11 @@ const vendorEarningSchema = new Schema<IVendorEarning>(
 );
 
 // Indexes
-vendorEarningSchema.index({ vendorId: 1, payoutStatus: 1 });
+vendorEarningSchema.index({ vendorId: 1, payoutStatus: 1, currency: 1 }); // UPDATED
 vendorEarningSchema.index({ vendorId: 1, earnedDate: -1 });
 vendorEarningSchema.index({ createdAt: -1 });
 
-// Vendor Wallet Schema
+// Vendor Wallet Schema - MAJOR UPDATE
 const vendorWalletSchema = new Schema<IVendorWallet>(
   {
     vendorId: {
@@ -199,35 +232,9 @@ const vendorWalletSchema = new Schema<IVendorWallet>(
       unique: true,
       index: true
     },
-    availableBalance: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: [0, 'Available balance cannot be negative']
-    },
-    pendingBalance: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: [0, 'Pending balance cannot be negative']
-    },
-    totalEarned: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: [0, 'Total earned cannot be negative']
-    },
-    totalWithdrawn: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: [0, 'Total withdrawn cannot be negative']
-    },
-    currency: {
-      type: String,
-      required: true,
-      default: 'BHD',
-      uppercase: true
+    currencyBalances: {
+      type: [currencyBalanceSchema],
+      default: []
     },
     lastPayoutDate: {
       type: Date
@@ -238,10 +245,28 @@ const vendorWalletSchema = new Schema<IVendorWallet>(
   }
 );
 
-// Virtual for calculating net balance
-vendorWalletSchema.virtual('netBalance').get(function() {
-  return this.availableBalance + this.pendingBalance;
-});
+// Helper method to get balance for a specific currency
+vendorWalletSchema.methods.getCurrencyBalance = function(currency: string) {
+  return this.currencyBalances.find((cb: any) => cb.currency === currency.toUpperCase());
+};
+
+// Helper method to update or add currency balance
+vendorWalletSchema.methods.updateCurrencyBalance = function(currency: string, updates: any) {
+  const index = this.currencyBalances.findIndex((cb: any) => cb.currency === currency.toUpperCase());
+  
+  if (index >= 0) {
+    Object.assign(this.currencyBalances[index], updates);
+  } else {
+    this.currencyBalances.push({
+      currency: currency.toUpperCase(),
+      availableBalance: 0,
+      pendingBalance: 0,
+      totalEarned: 0,
+      totalWithdrawn: 0,
+      ...updates
+    });
+  }
+};
 
 export const PayoutRequestModel = mongoose.model<IPayoutRequest>('PayoutRequest', payoutRequestSchema);
 export const VendorEarningModel = mongoose.model<IVendorEarning>('VendorEarning', vendorEarningSchema);

@@ -27,6 +27,7 @@ export interface IOrderProduct {
   quantity: number;
   price: number;
   total: number;
+  currency: string; // NEW: Currency for this product
 }
 
 export interface IShippingAddress {
@@ -60,6 +61,16 @@ export interface IPaymentHistory {
   };
 }
 
+// NEW: Currency breakdown for multi-currency orders
+export interface ICurrencyBreakdown {
+  currency: string;
+  subtotal: number;
+  shippingFee: number;
+  tax: number;
+  discount: number;
+  total: number;
+}
+
 export interface IOrder extends Document {
   userId: Types.ObjectId;
   orderNumber: string;
@@ -70,12 +81,14 @@ export interface IOrder extends Document {
   discount: number;
   tax: number;
   grandTotal: number;
+  baseCurrency: string; // NEW: Base currency for the order (e.g., 'BHD')
+  currencyBreakdown: ICurrencyBreakdown[]; // NEW: Breakdown by currency
   promoCode: string | null;
   estimatedDeliveryDate: Date | null;
   actualDeliveryDate: Date | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
-  paymentMethodUsed?: PaymentMethodType; // NEW: Track which payment method was used
+  paymentMethodUsed?: PaymentMethodType;
   shippingMethodId: Types.ObjectId;
   transactionId?: string;
   orderNotes: string | null;
@@ -101,6 +114,7 @@ export interface ICreateOrder {
   products: Array<{
     productId: string;
     quantity: number;
+    currency?: string; // NEW: Currency for each product
   }>;
   shippingMethodId: string;
   transactionId: string;
@@ -108,10 +122,11 @@ export interface ICreateOrder {
   shippingFee: number;
   discount?: number;
   tax: number;
+  baseCurrency?: string; // NEW: Base currency for the order
   promoCode?: string;
   estimatedDeliveryDate?: Date;
   orderNotes?: string;
-  paymentMethod?: PaymentMethodType; // NEW: Payment method selection
+  paymentMethod?: PaymentMethodType;
 }
 
 export interface IUpdateOrderStatus {
@@ -155,6 +170,7 @@ export interface IOrderStats {
   cancelled: number;
   totalRevenue: number;
   averageOrderValue: number;
+  revenueByCurrency?: { [key: string]: number }; // NEW: Revenue breakdown by currency
 }
 
 export interface IUserOrderStats {

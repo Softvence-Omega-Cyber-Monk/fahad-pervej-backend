@@ -22,39 +22,52 @@ export class OrderService {
     try {
       // Fetch products from database to populate product details
       const Product = mongoose.model('Product');
-      const productIds = data.products.map((p: { productId: number; }) => new mongoose.Types.ObjectId(p.productId));
+      const productIds = data.products.map((p: { productId: string }) => new mongoose.Types.ObjectId(p.productId));
 
       const products = await Product.find({ _id: { $in: productIds } })
-        .select('_id pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate productName userId')
+        .select('_id countryPricing productName userId')
         .populate('userId', 'name email role businessName');
 
       if (products.length !== data.products.length) {
         throw new Error('One or more products not found');
       }
 
-      // Create a map for quick price lookup
+      // Create a map for quick price lookup with multi-currency support
       const productMap = new Map();
-      const vendorProductsMap = new Map(); // For email notifications
+      const vendorProductsMap = new Map();
+      const currencyTotals = new Map<string, number>(); // Track totals by currency
 
       products.forEach((product: any) => {
-        let currentPrice = product.pricePerUnit;
+        // Get pricing based on country/currency
+        const countryPricing = product.countryPricing && product.countryPricing.length > 0
+          ? product.countryPricing[0]
+          : null;
 
+        if (!countryPricing) {
+          throw new Error(`No pricing found for product ${product._id}`);
+        }
+
+        let currentPrice = countryPricing.pricePerUnit;
+        const currency = countryPricing.currency || 'BHD';
+
+        // Check for special price
         if (
-          product.specialPrice &&
-          product.specialPriceStartingDate &&
-          product.specialPriceEndingDate
+          countryPricing.specialPrice &&
+          countryPricing.specialPriceStartingDate &&
+          countryPricing.specialPriceEndingDate
         ) {
           const now = new Date();
-          const startDate = new Date(product.specialPriceStartingDate);
-          const endDate = new Date(product.specialPriceEndingDate);
+          const startDate = new Date(countryPricing.specialPriceStartingDate);
+          const endDate = new Date(countryPricing.specialPriceEndingDate);
 
           if (now >= startDate && now <= endDate) {
-            currentPrice = product.specialPrice;
+            currentPrice = countryPricing.specialPrice;
           }
         }
 
         productMap.set(product._id.toString(), {
           price: currentPrice,
+          currency: currency,
           productName: product.productName,
           vendor: product.userId
         });
@@ -72,12 +85,18 @@ export class OrderService {
         }
       });
 
-      // Map products with prices and totals
-      const orderProducts = data.products.map((item: { productId: number; quantity: number; }) => {
+      // Map products with prices, currencies and totals
+      const orderProducts = data.products.map((item: { productId: string; quantity: number }) => {
         const productData = productMap.get(item.productId);
         if (!productData) {
           throw new Error(`Price not found for product ${item.productId}`);
         }
+
+        const itemTotal = item.quantity * productData.price;
+        const currency = productData.currency;
+
+        // Track currency totals
+        currencyTotals.set(currency, (currencyTotals.get(currency) || 0) + itemTotal);
 
         // Add to vendor's product list for email
         if (productData.vendor && productData.vendor.email) {
@@ -88,7 +107,8 @@ export class OrderService {
               productName: productData.productName,
               quantity: item.quantity,
               price: productData.price,
-              total: item.quantity * productData.price
+              total: itemTotal,
+              currency: currency
             });
           }
         }
@@ -97,18 +117,35 @@ export class OrderService {
           productId: new mongoose.Types.ObjectId(item.productId),
           quantity: item.quantity,
           price: productData.price,
-          total: item.quantity * productData.price
+          total: itemTotal,
+          currency: currency
         };
       });
 
-      // Use values from frontend
+      // Calculate currency breakdown
+      const currencyBreakdown = Array.from(currencyTotals.entries()).map(([currency, subtotal]) => {
+        // For simplicity, distribute shipping, tax, discount proportionally
+        // In production, you might want more sophisticated logic
+        const proportion = subtotal / data.totalPrice;
+
+        return {
+          currency: currency,
+          subtotal: subtotal,
+          shippingFee: data.shippingFee * proportion,
+          tax: data.tax * proportion,
+          discount: (data.discount || 0) * proportion,
+          total: subtotal + (data.shippingFee * proportion) + (data.tax * proportion) - ((data.discount || 0) * proportion)
+        };
+      });
+
       const discount = data.discount || 0;
       const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
+      const baseCurrency = data.baseCurrency || 'BHD';
 
-      // Generate a unique order number (always uppercase)
+      // Generate a unique order number
       const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-      // Set estimated delivery date (7 days from now if not provided)
+      // Set estimated delivery date
       const estimatedDeliveryDate = data.estimatedDeliveryDate
         ? new Date(data.estimatedDeliveryDate)
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -120,35 +157,28 @@ export class OrderService {
       let paymentMethodUsed = data.paymentMethod || PaymentMethodType.GATEWAY;
       const paymentHistory: any[] = [];
 
-      // Handle wallet payment - check balance first
+      // Handle wallet payment
       if (data.paymentMethod === 'WALLET') {
         console.log('Processing wallet payment for order:', orderNumber);
 
-        // Check if user has sufficient balance BEFORE creating order
         const hasSufficient = await walletService.hasSufficientBalance(userId, grandTotal);
 
         if (!hasSufficient) {
           const balance = await walletService.getWalletBalance(userId);
           throw new Error(
-            `Insufficient wallet balance. Available: ${balance.balance.toFixed(3)} BHD, Required: ${grandTotal.toFixed(3)} BHD`
+            `Insufficient wallet balance. Available: ${balance.balance.toFixed(3)} ${baseCurrency}, Required: ${grandTotal.toFixed(3)} ${baseCurrency}`
           );
         }
 
-        // Generate wallet transaction ID
         transactionId = `WALLET-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-
-        console.log('Wallet balance verified. Proceeding with order creation.');
-
-        // Set payment as completed for wallet
         paymentStatus = PaymentStatus.COMPLETED;
         orderStatus = OrderStatus.CONFIRMED;
         paymentMethodUsed = PaymentMethodType.WALLET;
 
-        // Add wallet payment to history
         paymentHistory.push({
           paymentGateway: 'Wallet System',
           gatewayTransactionId: transactionId,
-          currency: 'BHD',
+          currency: baseCurrency,
           paymentStatus: PaymentStatus.COMPLETED,
           paymentMethod: 'Wallet',
           paymentDate: new Date(),
@@ -159,7 +189,6 @@ export class OrderService {
           }
         });
       } else {
-        // Gateway payment - will be processed later
         paymentMethodUsed = PaymentMethodType.GATEWAY;
       }
 
@@ -181,6 +210,8 @@ export class OrderService {
         discount: discount,
         tax: data.tax,
         grandTotal: grandTotal,
+        baseCurrency: baseCurrency,
+        currencyBreakdown: currencyBreakdown,
         promoCode: data.promoCode || null,
         estimatedDeliveryDate,
         shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
@@ -202,7 +233,7 @@ export class OrderService {
       const order = new Order(orderData);
       await order.save({ session });
 
-      // Now debit wallet AFTER order is created (so we have the order ID)
+      // Debit wallet if payment method is WALLET
       if (data.paymentMethod === 'WALLET') {
         try {
           const walletResult = await walletService.debitWallet(userId, {
@@ -211,9 +242,8 @@ export class OrderService {
             description: `Payment for order ${orderNumber}`
           });
 
-          console.log('✅ Wallet debited successfully:', walletResult.balance, 'BHD');
+          console.log('✅ Wallet debited successfully:', walletResult.balance, baseCurrency);
         } catch (walletError) {
-          // If wallet debit fails, we need to rollback the order creation
           throw new Error(`Failed to debit wallet: ${walletError instanceof Error ? walletError.message : 'Unknown error'}`);
         }
       }
@@ -221,10 +251,10 @@ export class OrderService {
       await session.commitTransaction();
 
       // Populate product details for response
-      await order.populate('products.productId', 'productName mainImageUrl pricePerUnit specialPrice');
+      await order.populate('products.productId', 'productName mainImageUrl countryPricing');
       await order.populate('userId', 'name email');
 
-      // ===== Send email notifications =====
+      // Send email notifications
       try {
         console.log('📧 Sending order notification emails...');
 
@@ -257,20 +287,8 @@ export class OrderService {
             console.error(`❌ Failed to send email to customer ${customer.email}:`, customerEmailError);
           }
         }
-
-        // Send notification to admin
-        const adminEmail = process.env.ADMIN_EMAIL || process.env.SMTP_USER;
-        if (adminEmail) {
-          try {
-            await emailService.sendAdminOrderNotification(adminEmail, order.toObject());
-            console.log(`✅ Admin notification sent to: ${adminEmail}`);
-          } catch (adminEmailError) {
-            console.error(`❌ Failed to send email to admin:`, adminEmailError);
-          }
-        }
       } catch (emailError) {
         console.error('❌ Error in email notification process:', emailError);
-        // Don't throw - order is already created
       }
 
       return order;

@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: payout.service.ts - COMPLETE FIXED VERSION
+// ============================================================
+
 import mongoose from 'mongoose';
 import { PayoutRequestModel, VendorEarningModel, VendorWalletModel } from './payout.model';
 import {
@@ -18,21 +22,21 @@ import { walletService } from '../wallet/wallet.service';
 export class PayoutService {
   /**
    * Create vendor earnings when order is delivered
-   * This should be called when order status changes to DELIVERED
    */
   async createVendorEarning(
     vendorId: string,
     orderId: string,
     orderNumber: string,
-    orderAmount: number
+    orderAmount: number,
+    currency: string = 'BHD'
   ): Promise<IVendorEarning> {
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      console.log(`📊 Creating vendor earning - Vendor: ${vendorId}, Order: ${orderNumber}, Amount: ${orderAmount}`);
+      console.log(`📊 Creating vendor earning - Vendor: ${vendorId}, Order: ${orderNumber}, Amount: ${orderAmount} ${currency}`);
 
-      // Check if earning already exists for this order and vendor
+      // Check if earning already exists
       const existingEarning = await VendorEarningModel.findOne({ 
         orderId: new mongoose.Types.ObjectId(orderId),
         vendorId: new mongoose.Types.ObjectId(vendorId)
@@ -48,9 +52,9 @@ export class PayoutService {
       const vendorShare = Math.round(orderAmount * 0.9 * 1000) / 1000;
       const platformCommission = Math.round(orderAmount * 0.1 * 1000) / 1000;
 
-      console.log(`💰 Calculated - Vendor Share: ${vendorShare} (90%), Platform Commission: ${platformCommission} (10%)`);
+      console.log(`💰 Calculated - Vendor Share: ${vendorShare} ${currency} (90%), Platform Commission: ${platformCommission} ${currency} (10%)`);
 
-      // Create earning record
+      // Create earning record with currency
       const earning = new VendorEarningModel({
         vendorId: new mongoose.Types.ObjectId(vendorId),
         orderId: new mongoose.Types.ObjectId(orderId),
@@ -58,7 +62,7 @@ export class PayoutService {
         orderAmount,
         vendorShare,
         platformCommission,
-        currency: 'BHD',
+        currency: currency.toUpperCase(),
         earnedDate: new Date(),
         payoutStatus: 'PENDING'
       });
@@ -72,26 +76,42 @@ export class PayoutService {
       }).session(session);
 
       if (!wallet) {
-        console.log(`📝 Creating new vendor wallet for vendor ${vendorId}`);
+        console.log(`🆕 Creating new vendor wallet for vendor ${vendorId}`);
         wallet = new VendorWalletModel({
           vendorId: new mongoose.Types.ObjectId(vendorId),
-          availableBalance: vendorShare,
-          pendingBalance: 0,
-          totalEarned: vendorShare,
-          totalWithdrawn: 0,
-          currency: 'BHD'
+          currencyBalances: [{
+            currency: currency.toUpperCase(),
+            availableBalance: vendorShare,
+            pendingBalance: 0,
+            totalEarned: vendorShare,
+            totalWithdrawn: 0
+          }]
         });
       } else {
-        console.log(`📝 Updating existing vendor wallet. Current balance: ${wallet.availableBalance} BHD`);
-        wallet.availableBalance = Math.round((wallet.availableBalance + vendorShare) * 1000) / 1000;
-        wallet.totalEarned = Math.round((wallet.totalEarned + vendorShare) * 1000) / 1000;
+        // Update currency balance
+        const currBalance = wallet.currencyBalances.find(cb => cb.currency === currency.toUpperCase());
+        
+        if (currBalance) {
+          console.log(`🔄 Updating existing ${currency} balance. Current: ${currBalance.availableBalance}`);
+          currBalance.availableBalance = Math.round((currBalance.availableBalance + vendorShare) * 1000) / 1000;
+          currBalance.totalEarned = Math.round((currBalance.totalEarned + vendorShare) * 1000) / 1000;
+        } else {
+          console.log(`🆕 Adding new currency ${currency} to wallet`);
+          wallet.currencyBalances.push({
+            currency: currency.toUpperCase(),
+            availableBalance: vendorShare,
+            pendingBalance: 0,
+            totalEarned: vendorShare,
+            totalWithdrawn: 0
+          });
+        }
       }
 
       await wallet.save({ session });
-
       await session.commitTransaction();
       
-      console.log(`✅ Vendor earning created successfully. New wallet balance: ${wallet.availableBalance} BHD`);
+      const balance = wallet.currencyBalances.find(cb => cb.currency === currency.toUpperCase());
+      console.log(`✅ Vendor earning created successfully. New ${currency} balance: ${balance?.availableBalance}`);
       
       return earning;
     } catch (error) {
@@ -105,43 +125,36 @@ export class PayoutService {
 
   /**
    * Create admin commission record when order is delivered
-   * This credits the 10% commission to admin wallet
    */
   async createAdminCommission(
     orderId: string,
     orderNumber: string,
-    orderAmount: number
+    orderAmount: number,
+    currency: string = 'BHD'
   ): Promise<void> {
     try {
-      // Get admin user ID from environment or database
       const adminUserId = process.env.ADMIN_USER_ID;
-      
-      // Calculate platform commission (10%)
       const platformCommission = Math.round(orderAmount * 0.1 * 1000) / 1000;
 
-      console.log(`💼 Creating admin commission - Order: ${orderNumber}, Total: ${orderAmount}, Commission: ${platformCommission}`);
+      console.log(`💼 Creating admin commission - Order: ${orderNumber}, Total: ${orderAmount} ${currency}, Commission: ${platformCommission} ${currency}`);
 
-      // If admin wallet exists, credit the commission
       if (adminUserId) {
         try {
-          // Credit admin wallet with the 10% commission
           await walletService.creditWallet(adminUserId, {
             amount: platformCommission,
             paymentMethod: 'MASTERCARD_GATEWAY' as any,
             description: `Platform commission (10%) from order ${orderNumber}`
           });
           
-          console.log(`✅ Admin commission ${platformCommission} BHD credited for order ${orderNumber}`);
+          console.log(`✅ Admin commission ${platformCommission} ${currency} credited for order ${orderNumber}`);
         } catch (walletError) {
           console.error('❌ Error crediting admin wallet:', walletError);
-          // Continue - the commission is still tracked in vendor earnings
         }
       } else {
         console.warn('⚠️ ADMIN_USER_ID not configured in environment - commission tracked but not credited to wallet');
       }
     } catch (error) {
       console.error('❌ Error creating admin commission:', error);
-      // Don't throw - this shouldn't block order delivery
     }
   }
 
@@ -157,15 +170,11 @@ export class PayoutService {
       }).populate('vendorId', 'name email businessName phone');
 
       if (!wallet) {
-        console.log(`📝 Wallet not found, creating new wallet for vendor: ${vendorId}`);
+        console.log(`🆕 Wallet not found, creating new wallet for vendor: ${vendorId}`);
         
         wallet = new VendorWalletModel({
           vendorId: new mongoose.Types.ObjectId(vendorId),
-          availableBalance: 0,
-          pendingBalance: 0,
-          totalEarned: 0,
-          totalWithdrawn: 0,
-          currency: 'BHD'
+          currencyBalances: [] // Start with empty array
         });
         
         await wallet.save();
@@ -175,7 +184,7 @@ export class PayoutService {
         wallet = await VendorWalletModel.findById(wallet._id)
           .populate('vendorId', 'name email businessName phone');
       } else {
-        console.log(`✅ Wallet found - Balance: ${wallet.availableBalance} BHD, Total Earned: ${wallet.totalEarned} BHD`);
+        console.log(`✅ Wallet found with ${wallet.currencyBalances.length} currency balances`);
       }
 
       return wallet!;
@@ -196,7 +205,8 @@ export class PayoutService {
     session.startTransaction();
 
     try {
-      console.log(`💰 Creating payout request for vendor: ${vendorId}, Amount: ${data.requestedAmount}`);
+      const currency = data.currency.toUpperCase();
+      console.log(`💰 Creating payout request for vendor: ${vendorId}, Amount: ${data.requestedAmount} ${currency}`);
 
       // Get vendor wallet
       const wallet = await VendorWalletModel.findOne({ 
@@ -207,28 +217,36 @@ export class PayoutService {
         throw new Error('Vendor wallet not found. Please contact support.');
       }
 
-      console.log(`📊 Wallet status - Available: ${wallet.availableBalance} BHD, Requested: ${data.requestedAmount} BHD`);
-
-      // Check if sufficient balance
-      if (wallet.availableBalance < data.requestedAmount) {
-        throw new Error(`Insufficient balance for payout. Available: ${wallet.availableBalance.toFixed(3)} BHD, Requested: ${data.requestedAmount.toFixed(3)} BHD`);
+      // Find currency balance
+      const currBalance = wallet.currencyBalances.find(cb => cb.currency === currency);
+      
+      if (!currBalance) {
+        throw new Error(`No ${currency} balance found in your wallet.`);
       }
 
-      // Check for pending payout requests
+      console.log(`📊 ${currency} Wallet status - Available: ${currBalance.availableBalance}, Requested: ${data.requestedAmount}`);
+
+      // Check if sufficient balance
+      if (currBalance.availableBalance < data.requestedAmount) {
+        throw new Error(`Insufficient ${currency} balance for payout. Available: ${currBalance.availableBalance.toFixed(3)}, Requested: ${data.requestedAmount.toFixed(3)}`);
+      }
+
+      // Check for pending payout requests in same currency
       const pendingRequest = await PayoutRequestModel.findOne({
         vendorId: new mongoose.Types.ObjectId(vendorId),
+        currency: currency,
         status: { $in: [PayoutStatus.PENDING, PayoutStatus.APPROVED, PayoutStatus.PROCESSING] }
       }).session(session);
 
       if (pendingRequest) {
-        throw new Error('You already have a pending payout request. Please wait for it to be processed.');
+        throw new Error(`You already have a pending ${currency} payout request. Please wait for it to be processed.`);
       }
 
       // Create payout request
       const payoutRequest = new PayoutRequestModel({
         vendorId: new mongoose.Types.ObjectId(vendorId),
         requestedAmount: data.requestedAmount,
-        currency: 'BHD',
+        currency: currency,
         payoutMethod: data.payoutMethod,
         bankDetails: data.bankDetails,
         paypalEmail: data.paypalEmail,
@@ -242,11 +260,11 @@ export class PayoutService {
       console.log(`✅ Payout request created: ${payoutRequest._id}`);
 
       // Move amount from available to pending
-      wallet.availableBalance = Math.round((wallet.availableBalance - data.requestedAmount) * 1000) / 1000;
-      wallet.pendingBalance = Math.round((wallet.pendingBalance + data.requestedAmount) * 1000) / 1000;
+      currBalance.availableBalance = Math.round((currBalance.availableBalance - data.requestedAmount) * 1000) / 1000;
+      currBalance.pendingBalance = Math.round((currBalance.pendingBalance + data.requestedAmount) * 1000) / 1000;
       await wallet.save({ session });
 
-      console.log(`✅ Wallet updated - New Available: ${wallet.availableBalance} BHD, New Pending: ${wallet.pendingBalance} BHD`);
+      console.log(`✅ Wallet updated - New Available: ${currBalance.availableBalance} ${currency}, New Pending: ${currBalance.pendingBalance} ${currency}`);
 
       await session.commitTransaction();
 
@@ -297,7 +315,14 @@ export class PayoutService {
         throw new Error('Vendor wallet not found');
       }
 
-      console.log(`📊 Current wallet - Pending: ${wallet.pendingBalance} BHD, Payout Amount: ${payout.requestedAmount} BHD`);
+      // Find the currency balance for this payout
+      const currBalance = wallet.currencyBalances.find(cb => cb.currency === payout.currency);
+
+      if (!currBalance) {
+        throw new Error(`${payout.currency} balance not found in wallet`);
+      }
+
+      console.log(`📊 Current ${payout.currency} wallet - Pending: ${currBalance.pendingBalance}, Payout Amount: ${payout.requestedAmount}`);
 
       // Update payout request
       payout.status = data.status;
@@ -310,16 +335,17 @@ export class PayoutService {
       if (data.status === PayoutStatus.COMPLETED) {
         payout.completedDate = new Date();
         
-        // Update wallet
-        wallet.pendingBalance = Math.round((wallet.pendingBalance - payout.requestedAmount) * 1000) / 1000;
-        wallet.totalWithdrawn = Math.round((wallet.totalWithdrawn + payout.requestedAmount) * 1000) / 1000;
+        // Update currency balance
+        currBalance.pendingBalance = Math.round((currBalance.pendingBalance - payout.requestedAmount) * 1000) / 1000;
+        currBalance.totalWithdrawn = Math.round((currBalance.totalWithdrawn + payout.requestedAmount) * 1000) / 1000;
         wallet.lastPayoutDate = new Date();
 
-        console.log(`✅ Payout completed - New Pending: ${wallet.pendingBalance} BHD, Total Withdrawn: ${wallet.totalWithdrawn} BHD`);
+        console.log(`✅ Payout completed - New Pending: ${currBalance.pendingBalance} ${payout.currency}, Total Withdrawn: ${currBalance.totalWithdrawn} ${payout.currency}`);
 
-        // Mark earnings as paid (up to the payout amount)
+        // Mark earnings as paid (up to the payout amount) - only for same currency
         const pendingEarnings = await VendorEarningModel.find({
           vendorId: payout.vendorId,
+          currency: payout.currency,
           payoutStatus: 'PENDING'
         })
         .sort({ earnedDate: 1 })
@@ -348,15 +374,15 @@ export class PayoutService {
             },
             { session }
           );
-          console.log(`✅ Marked ${earningIdsToUpdate.length} earnings as PAID`);
+          console.log(`✅ Marked ${earningIdsToUpdate.length} ${payout.currency} earnings as PAID`);
         }
 
       } else if (data.status === PayoutStatus.REJECTED || data.status === PayoutStatus.FAILED) {
         // Return amount to available balance
-        wallet.availableBalance = Math.round((wallet.availableBalance + payout.requestedAmount) * 1000) / 1000;
-        wallet.pendingBalance = Math.round((wallet.pendingBalance - payout.requestedAmount) * 1000) / 1000;
+        currBalance.availableBalance = Math.round((currBalance.availableBalance + payout.requestedAmount) * 1000) / 1000;
+        currBalance.pendingBalance = Math.round((currBalance.pendingBalance - payout.requestedAmount) * 1000) / 1000;
         
-        console.log(`🔄 Payout ${data.status} - Amount returned to available balance: ${wallet.availableBalance} BHD`);
+        console.log(`🔄 Payout ${data.status} - Amount returned to available balance: ${currBalance.availableBalance} ${payout.currency}`);
       }
 
       await payout.save({ session });
@@ -377,16 +403,20 @@ export class PayoutService {
   }
 
   /**
-   * Get vendor sales statistics
+   * Get vendor sales statistics (returns array grouped by currency)
    */
   async getVendorSalesStats(
     vendorId: string,
     filters?: ISalesReportFilters
-  ): Promise<IVendorSalesStats> {
+  ): Promise<IVendorSalesStats[]> {
     try {
       console.log(`📊 Getting sales stats for vendor: ${vendorId}`);
 
       const query: any = { vendorId: new mongoose.Types.ObjectId(vendorId) };
+
+      if (filters?.currency) {
+        query.currency = filters.currency.toUpperCase();
+      }
 
       if (filters?.startDate || filters?.endDate) {
         query.earnedDate = {};
@@ -394,34 +424,42 @@ export class PayoutService {
         if (filters.endDate) query.earnedDate.$lte = filters.endDate;
       }
 
-      const earnings = await VendorEarningModel.find(query);
+      // Group by currency
+      const statsPerCurrency = await VendorEarningModel.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: '$currency',
+            totalSales: { $sum: '$orderAmount' },
+            totalOrders: { $sum: 1 },
+            vendorEarnings: { $sum: '$vendorShare' },
+            platformCommission: { $sum: '$platformCommission' },
+            pendingEarnings: {
+              $sum: {
+                $cond: [{ $eq: ['$payoutStatus', 'PENDING'] }, '$vendorShare', 0]
+              }
+            },
+            paidEarnings: {
+              $sum: {
+                $cond: [{ $eq: ['$payoutStatus', 'PAID'] }, '$vendorShare', 0]
+              }
+            }
+          }
+        }
+      ]);
 
-      console.log(`📈 Found ${earnings.length} earnings records`);
+      console.log(`📈 Found stats for ${statsPerCurrency.length} currencies`);
 
-      const totalSales = earnings.reduce((sum, e) => sum + e.orderAmount, 0);
-      const totalOrders = earnings.length;
-      const vendorEarnings = earnings.reduce((sum, e) => sum + e.vendorShare, 0);
-      const platformCommission = earnings.reduce((sum, e) => sum + e.platformCommission, 0);
-      const pendingEarnings = earnings
-        .filter(e => e.payoutStatus === 'PENDING')
-        .reduce((sum, e) => sum + e.vendorShare, 0);
-      const paidEarnings = earnings
-        .filter(e => e.payoutStatus === 'PAID')
-        .reduce((sum, e) => sum + e.vendorShare, 0);
-
-      const stats = {
-        totalSales: Math.round(totalSales * 1000) / 1000,
-        totalOrders,
-        vendorEarnings: Math.round(vendorEarnings * 1000) / 1000,
-        platformCommission: Math.round(platformCommission * 1000) / 1000,
-        averageOrderValue: totalOrders > 0 ? Math.round((totalSales / totalOrders) * 1000) / 1000 : 0,
-        pendingEarnings: Math.round(pendingEarnings * 1000) / 1000,
-        paidEarnings: Math.round(paidEarnings * 1000) / 1000
-      };
-
-      console.log(`✅ Stats calculated:`, stats);
-
-      return stats;
+      return statsPerCurrency.map(stat => ({
+        currency: stat._id,
+        totalSales: Math.round(stat.totalSales * 1000) / 1000,
+        totalOrders: stat.totalOrders,
+        vendorEarnings: Math.round(stat.vendorEarnings * 1000) / 1000,
+        platformCommission: Math.round(stat.platformCommission * 1000) / 1000,
+        averageOrderValue: stat.totalOrders > 0 ? Math.round((stat.totalSales / stat.totalOrders) * 1000) / 1000 : 0,
+        pendingEarnings: Math.round(stat.pendingEarnings * 1000) / 1000,
+        paidEarnings: Math.round(stat.paidEarnings * 1000) / 1000
+      }));
     } catch (error) {
       console.error('❌ Error getting vendor sales stats:', error);
       throw error;
@@ -429,9 +467,9 @@ export class PayoutService {
   }
 
   /**
-   * Get vendor monthly sales breakdown
+   * Get vendor monthly sales breakdown (grouped by currency)
    */
-  async getVendorMonthlySales(vendorId: string, year?: number): Promise<IMonthlySales[]> {
+  async getVendorMonthlySales(vendorId: string, year?: number, currency?: string): Promise<IMonthlySales[]> {
     try {
       const currentYear = year || new Date().getFullYear();
       console.log(`📅 Getting monthly sales for vendor: ${vendorId}, Year: ${currentYear}`);
@@ -439,18 +477,23 @@ export class PayoutService {
       const startDate = new Date(currentYear, 0, 1);
       const endDate = new Date(currentYear, 11, 31, 23, 59, 59);
 
+      const matchQuery: any = {
+        vendorId: new mongoose.Types.ObjectId(vendorId),
+        earnedDate: { $gte: startDate, $lte: endDate }
+      };
+
+      if (currency) {
+        matchQuery.currency = currency.toUpperCase();
+      }
+
       const earnings = await VendorEarningModel.aggregate([
-        {
-          $match: {
-            vendorId: new mongoose.Types.ObjectId(vendorId),
-            earnedDate: { $gte: startDate, $lte: endDate }
-          }
-        },
+        { $match: matchQuery },
         {
           $group: {
             _id: {
               year: { $year: '$earnedDate' },
-              month: { $month: '$earnedDate' }
+              month: { $month: '$earnedDate' },
+              currency: '$currency'
             },
             totalSales: { $sum: '$orderAmount' },
             totalOrders: { $sum: 1 },
@@ -459,11 +502,11 @@ export class PayoutService {
           }
         },
         {
-          $sort: { '_id.year': 1, '_id.month': 1 }
+          $sort: { '_id.year': 1, '_id.month': 1, '_id.currency': 1 }
         }
       ]);
 
-      console.log(`📊 Found ${earnings.length} months with sales`);
+      console.log(`📊 Found ${earnings.length} month-currency combinations with sales`);
 
       const monthNames = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -473,6 +516,7 @@ export class PayoutService {
       return earnings.map(e => ({
         month: monthNames[e._id.month - 1],
         year: e._id.year,
+        currency: e._id.currency,
         totalSales: Math.round(e.totalSales * 1000) / 1000,
         totalOrders: e.totalOrders,
         vendorEarnings: Math.round(e.vendorEarnings * 1000) / 1000,
@@ -485,13 +529,17 @@ export class PayoutService {
   }
 
   /**
-   * Get admin commission statistics
+   * Get admin commission statistics (grouped by currency if needed)
    */
-  async getAdminCommissionStats(filters?: ISalesReportFilters): Promise<IAdminCommissionStats> {
+  async getAdminCommissionStats(filters?: ISalesReportFilters): Promise<IAdminCommissionStats[]> {
     try {
       console.log(`💼 Getting admin commission stats`);
 
       const query: any = {};
+
+      if (filters?.currency) {
+        query.currency = filters.currency.toUpperCase();
+      }
 
       if (filters?.startDate || filters?.endDate) {
         query.earnedDate = {};
@@ -499,58 +547,75 @@ export class PayoutService {
         if (filters.endDate) query.earnedDate.$lte = filters.endDate;
       }
 
-      const earnings = await VendorEarningModel.find(query);
-
-      console.log(`📈 Found ${earnings.length} earnings records`);
-
-      const totalCommission = earnings.reduce((sum, e) => sum + e.platformCommission, 0);
-      const totalVendorEarnings = earnings.reduce((sum, e) => sum + e.vendorShare, 0);
-      const totalOrders = earnings.length;
-
-      // Monthly breakdown
-      const monthlyData = await VendorEarningModel.aggregate([
+      // Group by currency
+      const statsByCurrency = await VendorEarningModel.aggregate([
         { $match: query },
         {
           $group: {
-            _id: {
-              year: { $year: '$earnedDate' },
-              month: { $month: '$earnedDate' }
-            },
-            commission: { $sum: '$platformCommission' },
-            vendorEarnings: { $sum: '$vendorShare' }
+            _id: '$currency',
+            totalCommission: { $sum: '$platformCommission' },
+            totalVendorEarnings: { $sum: '$vendorShare' },
+            totalOrders: { $sum: 1 }
           }
-        },
-        {
-          $sort: { '_id.year': -1, '_id.month': -1 }
-        },
-        {
-          $limit: 12
         }
       ]);
 
-      const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
+      const result: IAdminCommissionStats[] = [];
 
-      const monthlyBreakdown = monthlyData.map(m => ({
-        month: monthNames[m._id.month - 1],
-        year: m._id.year,
-        commission: Math.round(m.commission * 1000) / 1000,
-        vendorEarnings: Math.round(m.vendorEarnings * 1000) / 1000
-      }));
+      for (const currencyStat of statsByCurrency) {
+        // Get monthly breakdown for this currency
+        const monthlyData = await VendorEarningModel.aggregate([
+          { 
+            $match: { 
+              ...query, 
+              currency: currencyStat._id 
+            } 
+          },
+          {
+            $group: {
+              _id: {
+                year: { $year: '$earnedDate' },
+                month: { $month: '$earnedDate' }
+              },
+              commission: { $sum: '$platformCommission' },
+              vendorEarnings: { $sum: '$vendorShare' }
+            }
+          },
+          {
+            $sort: { '_id.year': -1, '_id.month': -1 }
+          },
+          {
+            $limit: 12
+          }
+        ]);
 
-      const stats = {
-        totalCommission: Math.round(totalCommission * 1000) / 1000,
-        totalVendorEarnings: Math.round(totalVendorEarnings * 1000) / 1000,
-        totalOrders,
-        averageCommissionPerOrder: totalOrders > 0 ? Math.round((totalCommission / totalOrders) * 1000) / 1000 : 0,
-        monthlyBreakdown
-      };
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
 
-      console.log(`✅ Commission stats calculated:`, stats);
+        const monthlyBreakdown = monthlyData.map(m => ({
+          month: monthNames[m._id.month - 1],
+          year: m._id.year,
+          commission: Math.round(m.commission * 1000) / 1000,
+          vendorEarnings: Math.round(m.vendorEarnings * 1000) / 1000
+        }));
 
-      return stats;
+        result.push({
+          currency: currencyStat._id,
+          totalCommission: Math.round(currencyStat.totalCommission * 1000) / 1000,
+          totalVendorEarnings: Math.round(currencyStat.totalVendorEarnings * 1000) / 1000,
+          totalOrders: currencyStat.totalOrders,
+          averageCommissionPerOrder: currencyStat.totalOrders > 0 
+            ? Math.round((currencyStat.totalCommission / currencyStat.totalOrders) * 1000) / 1000 
+            : 0,
+          monthlyBreakdown
+        });
+      }
+
+      console.log(`✅ Commission stats calculated for ${result.length} currencies`);
+
+      return result;
     } catch (error) {
       console.error('❌ Error getting admin commission stats:', error);
       throw error;
@@ -572,6 +637,10 @@ export class PayoutService {
 
       if (filters?.status) {
         query.status = filters.status;
+      }
+
+      if (filters?.currency) {
+        query.currency = filters.currency.toUpperCase();
       }
 
       if (filters?.startDate || filters?.endDate) {
@@ -658,7 +727,7 @@ export class PayoutService {
       }).populate('vendorId', 'name email businessName phone');
 
       if (wallet) {
-        console.log(`✅ Wallet found - Balance: ${wallet.availableBalance} BHD`);
+        console.log(`✅ Wallet found with ${wallet.currencyBalances.length} currency balances`);
       } else {
         console.log(`⚠️ Wallet not found`);
       }
@@ -679,7 +748,6 @@ export class PayoutService {
 
       const wallets = await VendorWalletModel.find()
         .populate('vendorId', 'name email businessName phone')
-        .sort({ totalEarned: -1 })
         .limit(limit)
         .skip(offset);
 
@@ -703,6 +771,10 @@ export class PayoutService {
       console.log(`🔍 Getting vendor earnings: ${vendorId}`);
 
       const query: any = { vendorId: new mongoose.Types.ObjectId(vendorId) };
+
+      if (filters?.currency) {
+        query.currency = filters.currency.toUpperCase();
+      }
 
       if (filters?.startDate || filters?.endDate) {
         query.earnedDate = {};

@@ -21,6 +21,12 @@ const orderProductSchema = new Schema({
     type: Number,
     required: [true, 'Total is required'],
     min: [0, 'Total cannot be negative']
+  },
+  currency: {
+    type: String,
+    required: [true, 'Currency is required'],
+    uppercase: true,
+    default: 'BHD'
   }
 }, { _id: false });
 
@@ -131,6 +137,39 @@ const paymentHistorySchema = new Schema({
   }
 }, { _id: false });
 
+const currencyBreakdownSchema = new Schema({
+  currency: {
+    type: String,
+    required: true,
+    uppercase: true
+  },
+  subtotal: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  shippingFee: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  tax: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  discount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  total: {
+    type: Number,
+    required: true,
+    min: 0
+  }
+}, { _id: false });
+
 const orderSchema = new Schema<IOrder>(
   {
     userId: {
@@ -185,6 +224,16 @@ const orderSchema = new Schema<IOrder>(
       type: Number,
       required: [true, 'Grand total is required'],
       min: [0, 'Grand total cannot be negative']
+    },
+    baseCurrency: {
+      type: String,
+      required: true,
+      uppercase: true,
+      default: 'BHD'
+    },
+    currencyBreakdown: {
+      type: [currencyBreakdownSchema],
+      default: []
     },
     promoCode: {
       type: String,
@@ -269,6 +318,7 @@ orderSchema.index({ 'shippingAddress.mobileNumber': 1 });
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ 'paymentHistory.gatewayTransactionId': 1 });
 orderSchema.index({ paymentMethodUsed: 1 });
+orderSchema.index({ baseCurrency: 1 });
 
 // Generate unique order number before saving
 orderSchema.pre('save', async function(next) {

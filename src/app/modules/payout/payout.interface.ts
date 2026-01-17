@@ -50,8 +50,8 @@ export interface IVendorEarning extends Document {
   orderId: Types.ObjectId;
   orderNumber: string;
   orderAmount: number;
-  vendorShare: number; // 90%
-  platformCommission: number; // 10%
+  vendorShare: number;
+  platformCommission: number;
   currency: string;
   earnedDate: Date;
   payoutStatus: 'PENDING' | 'PAID';
@@ -60,13 +60,19 @@ export interface IVendorEarning extends Document {
   updatedAt: Date;
 }
 
-export interface IVendorWallet extends Document {
-  vendorId: Types.ObjectId;
+// NEW: Currency Balance Interface
+export interface ICurrencyBalance {
+  currency: string;
   availableBalance: number;
   pendingBalance: number;
   totalEarned: number;
   totalWithdrawn: number;
-  currency: string;
+}
+
+export interface IVendorWallet extends Document {
+  vendorId: Types.ObjectId;
+  // CHANGED: Now stores array of currency balances
+  currencyBalances: ICurrencyBalance[];
   lastPayoutDate?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -74,6 +80,7 @@ export interface IVendorWallet extends Document {
 
 export interface ICreatePayoutRequest {
   requestedAmount: number;
+  currency: string; // NEW: Required currency field
   payoutMethod: PayoutMethod;
   bankDetails?: IBankDetails;
   paypalEmail?: string;
@@ -96,6 +103,7 @@ export interface IVendorSalesStats {
   averageOrderValue: number;
   pendingEarnings: number;
   paidEarnings: number;
+  currency: string; // NEW: Stats per currency
 }
 
 export interface IMonthlySales {
@@ -105,6 +113,7 @@ export interface IMonthlySales {
   totalOrders: number;
   vendorEarnings: number;
   platformCommission: number;
+  currency: string; // NEW
 }
 
 export interface IAdminCommissionStats {
@@ -112,6 +121,7 @@ export interface IAdminCommissionStats {
   totalVendorEarnings: number;
   totalOrders: number;
   averageCommissionPerOrder: number;
+  currency: string; // NEW
   monthlyBreakdown: Array<{
     month: string;
     year: number;
@@ -123,6 +133,7 @@ export interface IAdminCommissionStats {
 export interface IPayoutFilters {
   vendorId?: string;
   status?: PayoutStatus;
+  currency?: string; // NEW
   startDate?: Date;
   endDate?: Date;
   minAmount?: number;
@@ -131,6 +142,7 @@ export interface IPayoutFilters {
 
 export interface ISalesReportFilters {
   vendorId?: string;
+  currency?: string; // NEW
   startDate?: Date;
   endDate?: Date;
   year?: number;

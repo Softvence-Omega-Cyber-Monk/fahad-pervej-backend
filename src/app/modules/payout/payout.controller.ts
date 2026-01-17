@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: payout.controller.ts - FIXED VERSION
+// ============================================================
+
 import { Request, Response } from 'express';
 import { payoutService } from './payout.service';
 import { ICreatePayoutRequest, IProcessPayoutRequest, PayoutStatus } from './payout.interface';
@@ -42,7 +46,7 @@ export class PayoutController {
   };
 
   /**
-   * Get vendor sales statistics
+   * Get vendor sales statistics (now returns array grouped by currency)
    */
   getVendorSalesStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -56,17 +60,18 @@ export class PayoutController {
         return;
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, currency } = req.query;
 
       const filters: any = {};
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
+      if (currency) filters.currency = currency as string;
 
       const stats = await payoutService.getVendorSalesStats(vendorId, filters);
 
       res.status(200).json({
         success: true,
-        data: stats
+        data: stats // Now returns array
       });
     } catch (error: any) {
       console.error('Error fetching vendor sales stats:', error.message);
@@ -93,8 +98,9 @@ export class PayoutController {
       }
 
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const currency = req.query.currency as string | undefined;
 
-      const monthlySales = await payoutService.getVendorMonthlySales(vendorId, year);
+      const monthlySales = await payoutService.getVendorMonthlySales(vendorId, year, currency);
 
       res.status(200).json({
         success: true,
@@ -124,11 +130,12 @@ export class PayoutController {
         return;
       }
 
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, currency } = req.query;
 
       const filters: any = {};
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
+      if (currency) filters.currency = currency as string;
 
       const earnings = await payoutService.getVendorEarnings(vendorId, filters);
 
@@ -147,7 +154,7 @@ export class PayoutController {
   };
 
   /**
-   * Create payout request
+   * Create payout request (now requires currency)
    */
   createPayoutRequest = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -163,10 +170,10 @@ export class PayoutController {
 
       const data: ICreatePayoutRequest = req.body;
 
-      if (!data.requestedAmount || !data.payoutMethod) {
+      if (!data.requestedAmount || !data.payoutMethod || !data.currency) {
         res.status(400).json({
           success: false,
-          error: 'Requested amount and payout method are required'
+          error: 'Requested amount, currency, and payout method are required'
         });
         return;
       }
@@ -227,15 +234,16 @@ export class PayoutController {
   };
 
   /**
-   * Get all payout requests (Admin)
+   * Get all payout requests (Admin) - now supports currency filter
    */
   getAllPayoutRequests = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { vendorId, status, startDate, endDate, minAmount, maxAmount } = req.query;
+      const { vendorId, status, currency, startDate, endDate, minAmount, maxAmount } = req.query;
 
       const filters: any = {};
       if (vendorId) filters.vendorId = vendorId as string;
       if (status) filters.status = status as PayoutStatus;
+      if (currency) filters.currency = currency as string;
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
       if (minAmount) filters.minAmount = parseFloat(minAmount as string);
@@ -338,21 +346,22 @@ export class PayoutController {
   };
 
   /**
-   * Get admin commission statistics
+   * Get admin commission statistics (now returns array grouped by currency)
    */
   getAdminCommissionStats = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, currency } = req.query;
 
       const filters: any = {};
       if (startDate) filters.startDate = new Date(startDate as string);
       if (endDate) filters.endDate = new Date(endDate as string);
+      if (currency) filters.currency = currency as string;
 
       const stats = await payoutService.getAdminCommissionStats(filters);
 
       res.status(200).json({
         success: true,
-        data: stats
+        data: stats // Now returns array
       });
     } catch (error: any) {
       console.error('Error fetching commission stats:', error.message);
