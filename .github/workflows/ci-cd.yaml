@@ -66,7 +66,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           script: |
-            set -e
             mkdir -p /home/${{ secrets.VPS_USER }}/server
             cd /home/${{ secrets.VPS_USER }}/server
 
@@ -74,10 +73,13 @@ jobs:
             curl -O https://raw.githubusercontent.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend/amitav/docker-compose.yaml
             curl -O https://raw.githubusercontent.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend/amitav/Dockerfile
 
-            # Pull latest image (optional if you still want pull)
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/fahadpervej-mditems-app:latest
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-            # Build + start containers
+            # Pull the correct image
+            sudo docker pull amitavrchy/fahadpervej-mditems-app:latest
+
+            # Build + start containers (ensure docker-compose.yaml matches the image name)
             sudo docker compose up -d --build
 
             # Cleanup dangling images

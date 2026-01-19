@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   app:
-    image: fahadpervej-mditems-app:latest   # Use GitHub Docker Hub image
+    image: amitavrchy/fahadpervej-mditems-app:latest   # Use GitHub Docker Hub image
     container_name: fahadpervej-mditems-app
     restart: unless-stopped
     ports:
