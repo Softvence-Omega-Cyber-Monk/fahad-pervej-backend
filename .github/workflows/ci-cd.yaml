@@ -57,7 +57,6 @@ jobs:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: docker-build-push
-    if: github.ref == 'refs/heads/amitav'
 
     steps:
       - name: SSH & Deploy
@@ -68,14 +67,18 @@ jobs:
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           script: |
             set -e
+            mkdir -p /home/${{ secrets.VPS_USER }}/server
             cd /home/${{ secrets.VPS_USER }}/server
 
-            # Pull latest image from Docker Hub
+            # Copy docker-compose.yaml & Dockerfile from GitHub
+            curl -O https://raw.githubusercontent.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend/amitav/docker-compose.yaml
+            curl -O https://raw.githubusercontent.com/Softvence-Omega-Cyber-Monk/fahad-pervej-backend/amitav/Dockerfile
+
+            # Pull latest image (optional if you still want pull)
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/fahadpervej-mditems-app:latest
 
-            # Stop old containers & start new ones
-            sudo docker compose down --remove-orphans || true
-            sudo docker compose up -d
+            # Build + start containers
+            sudo docker compose up -d --build
 
-            # Clean dangling images
+            # Cleanup dangling images
             sudo docker system prune -f || true
