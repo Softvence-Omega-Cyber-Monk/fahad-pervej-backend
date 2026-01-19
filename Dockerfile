@@ -19,4 +19,4 @@ COPY --from=builder /app/package.json ./package.json
 ENV NODE_ENV=production
 EXPOSE 5056
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
