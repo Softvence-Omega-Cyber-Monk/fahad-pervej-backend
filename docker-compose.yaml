@@ -4,10 +4,10 @@ services:
     container_name: fahadpervej-mditems-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5056:5056"
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb+srv://fahad_db_user:WEejxtGLxZtuoSeS@cluster0.mongodb.net/myapp
+      - MONGODB_URI=mongodb+srv://fahad_db_user:WEejxtGLxZtuoSeS@cluster0.a1ajj74.mongodb.net/?appName=Cluster0
     networks:
       - app-network
 

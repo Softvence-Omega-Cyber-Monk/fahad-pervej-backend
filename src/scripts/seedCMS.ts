@@ -3,7 +3,7 @@
 import mongoose from 'mongoose';
 import { Topbar, Hero, Footer } from '../app/modules/cms/cms.model';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/your-database-name';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 async function seedCMS() {
     try {
