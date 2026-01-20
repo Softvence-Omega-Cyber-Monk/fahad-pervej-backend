@@ -54,8 +54,7 @@ const policySchema = new Schema<IPolicy, mongoose.Model<IPolicy, {}, IPolicyMeth
       type: String,
       unique: true,
       lowercase: true,
-      trim: true,
-      index: true
+      trim: true
     },
     title: {
       type: String,

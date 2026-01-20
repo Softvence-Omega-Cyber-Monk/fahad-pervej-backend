@@ -3,6 +3,7 @@ import { IUser } from "./user.interface";
 import jwt from "jsonwebtoken";
 import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 import fs from "fs";
+import { vendorEmailService } from "./vendor.email.service";
 
 interface TokenPair {
   accessToken: string;
@@ -108,6 +109,17 @@ export class UserService {
       const user = new UserModel(payload);
       await user.save();
 
+      console.log("✅ Vendor registered in database");
+
+      // Send pending approval email (don't wait for it)
+      vendorEmailService.sendVendorRegistrationPendingEmail(
+        user.email,
+        user.name,
+        user.businessName || 'Your Business'
+      ).catch(err => {
+        console.error("Failed to send registration pending email:", err);
+      });
+
       const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
       return { user, accessToken, refreshToken };
       
@@ -185,8 +197,22 @@ export class UserService {
   async verifyVendor(vendorId: string): Promise<IUser | null> {
     const vendor = await UserModel.findById(vendorId);
     if (!vendor) throw new Error("Vendor not found");
+    
     vendor.isVerified = true;
-    return vendor.save();
+    await vendor.save();
+
+    console.log("✅ Vendor verified successfully");
+
+    // Send approval email (don't wait for it)
+    vendorEmailService.sendVendorApprovedEmail(
+      vendor.email,
+      vendor.name,
+      vendor.businessName || 'Your Business'
+    ).catch(err => {
+      console.error("Failed to send vendor approved email:", err);
+    });
+
+    return vendor;
   }
 
   async getAllVendors(): Promise<IUser[]> {

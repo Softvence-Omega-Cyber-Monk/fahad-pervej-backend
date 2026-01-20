@@ -82,7 +82,7 @@ const payoutRequestSchema = new Schema<IPayoutRequest>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+
     },
     requestedAmount: {
       type: Number,
@@ -93,7 +93,6 @@ const payoutRequestSchema = new Schema<IPayoutRequest>(
       type: String,
       required: true,
       uppercase: true,
-      index: true // NEW INDEX
     },
     payoutMethod: {
       type: String,
@@ -116,7 +115,6 @@ const payoutRequestSchema = new Schema<IPayoutRequest>(
       type: String,
       enum: Object.values(PayoutStatus),
       default: PayoutStatus.PENDING,
-      index: true
     },
     requestedDate: {
       type: Date,
@@ -162,7 +160,6 @@ const vendorEarningSchema = new Schema<IVendorEarning>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
     },
     orderId: {
       type: Schema.Types.ObjectId,
@@ -173,7 +170,6 @@ const vendorEarningSchema = new Schema<IVendorEarning>(
     orderNumber: {
       type: String,
       required: true,
-      index: true
     },
     orderAmount: {
       type: Number,
@@ -194,18 +190,15 @@ const vendorEarningSchema = new Schema<IVendorEarning>(
       type: String,
       required: true,
       uppercase: true,
-      index: true
     },
     earnedDate: {
       type: Date,
       default: Date.now,
-      index: true
     },
     payoutStatus: {
       type: String,
       enum: ['PENDING', 'PAID'],
       default: 'PENDING',
-      index: true
     },
     payoutId: {
       type: Schema.Types.ObjectId,
@@ -229,8 +222,7 @@ const vendorWalletSchema = new Schema<IVendorWallet>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      unique: true,
-      index: true
+      unique: true
     },
     currencyBalances: {
       type: [currencyBalanceSchema],

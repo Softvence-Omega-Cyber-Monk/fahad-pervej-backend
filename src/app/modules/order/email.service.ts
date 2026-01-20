@@ -34,28 +34,44 @@ export class EmailService {
     throw new Error('Method not implemented.');
   }
   private transporter: nodemailer.Transporter;
+  private fromAddress: string;
+  private fromName: string;
 
   constructor() {
-    const port = parseInt(process.env.SMTP_PORT || '587');
+    // Use MAIL_* variables (preferred) or fallback to SMTP_* variables
+    const host = process.env.MAIL_HOST || process.env.SMTP_HOST || 'mail5018.site4now.net';
+    const port = parseInt(process.env.MAIL_PORT || process.env.SMTP_PORT || '587');
+    const user = process.env.MAIL_USERNAME || process.env.SMTP_USER || '';
+    const pass = process.env.MAIL_PASSWORD || process.env.SMTP_PASS || '';
+    const encryption = process.env.MAIL_ENCRYPTION || 'tls';
+    
+    // Set from address and name
+    this.fromAddress = process.env.MAIL_FROM_ADDRESS || process.env.SMTP_FROM || user;
+    this.fromName = process.env.MAIL_FROM_NAME || process.env.COMPANY_NAME || 'MDItems';
+
     const config: IEmailConfig = {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      host: host,
       port: port,
-      secure: port === 465, // true for 465, false for other ports
+      secure: port === 465, // true for 465, false for other ports (587 uses STARTTLS)
       auth: {
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || ''
+        user: user,
+        pass: pass
       }
     };
 
-    // Add additional options for Gmail
+    // Add additional options for better compatibility
     const transportConfig: any = {
       ...config,
       tls: {
-        rejectUnauthorized: false // Allow self-signed certificates
+        rejectUnauthorized: false, // Allow self-signed certificates
+        ciphers: 'SSLv3' // For compatibility with some SMTP servers
       },
       connectionTimeout: 10000, // 10 seconds
       greetingTimeout: 10000,
-      socketTimeout: 10000
+      socketTimeout: 10000,
+      requireTLS: encryption === 'tls', // Force TLS if specified
+      debug: process.env.NODE_ENV !== 'production', // Enable debug in development
+      logger: process.env.NODE_ENV !== 'production' // Enable logger in development
     };
 
     this.transporter = nodemailer.createTransport(transportConfig);
@@ -64,6 +80,8 @@ export class EmailService {
     this.testConnection().then(success => {
       if (success) {
         console.log('✅ Email service initialized successfully');
+        console.log(`📧 From: "${this.fromName}" <${this.fromAddress}>`);
+        console.log(`📧 SMTP: ${user} via ${host}:${port} (${encryption})`);
       } else {
         console.error('❌ Email service initialization failed');
       }
@@ -248,7 +266,7 @@ export class EmailService {
                 This is an automated notification. Please do not reply to this email.
               </p>
               <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
-                &copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || process.env.MERCHANT_NAME || 'MDItems'}. All rights reserved.
+                &copy; ${new Date().getFullYear()} ${this.fromName}. All rights reserved.
               </p>
             </td>
           </tr>
@@ -262,7 +280,7 @@ export class EmailService {
       `;
 
       const mailOptions = {
-        from: `"${process.env.COMPANY_NAME || process.env.MERCHANT_NAME || 'MDItems'}" <${process.env.SMTP_USER}>`,
+        from: `"${this.fromName}" <${this.fromAddress}>`,
         to: vendorEmail,
         subject: `New Order Received - ${order.orderNumber}`,
         html: emailHtml
@@ -323,7 +341,7 @@ export class EmailService {
           <tr>
             <td style="padding: 20px 30px; background-color: #f9f9f9; border-top: 1px solid #eee;">
               <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
-                &copy; ${new Date().getFullYear()} ${process.env.COMPANY_NAME || process.env.MERCHANT_NAME || 'MDItems'}. All rights reserved.
+                &copy; ${new Date().getFullYear()} ${this.fromName}. All rights reserved.
               </p>
             </td>
           </tr>
@@ -336,7 +354,7 @@ export class EmailService {
       `;
 
       const mailOptions = {
-        from: `"${process.env.COMPANY_NAME || process.env.MERCHANT_NAME || 'MDItems'}" <${process.env.SMTP_USER}>`,
+        from: `"${this.fromName}" <${this.fromAddress}>`,
         to: customerEmail,
         subject: `Order Confirmation - ${order.orderNumber}`,
         html: emailHtml
@@ -393,7 +411,7 @@ export class EmailService {
       console.log(`📧 Sending test email to: ${to}`);
 
       const mailOptions = {
-        from: `"${process.env.COMPANY_NAME || 'Test'}" <${process.env.SMTP_USER}>`,
+        from: `"${this.fromName}" <${this.fromAddress}>`,
         to: to,
         subject: 'Test Email - Email Service Working',
         html: '<h1>Test Email</h1><p>If you receive this email, your email service is working correctly!</p>'

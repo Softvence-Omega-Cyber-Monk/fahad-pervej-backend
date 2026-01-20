@@ -24,13 +24,11 @@ const reviewSchema = new Schema<IReview>(
       type: Schema.Types.ObjectId,
       ref: 'Product',
       required: [true, 'Product ID is required'],
-      index: true,
     },
     user: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User ID is required'],
-      index: true,
     },
     rating: {
       type: Number,

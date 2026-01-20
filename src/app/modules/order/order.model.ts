@@ -175,15 +175,13 @@ const orderSchema = new Schema<IOrder>(
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'User ID is required'],
-      index: true
+      required: [true, 'User ID is required']
     },
     orderNumber: {
       type: String,
       required: true,
       unique: true,
-      uppercase: true,
-      index: true
+      uppercase: true
     },
     shippingAddress: {
       type: shippingAddressSchema,
@@ -255,8 +253,7 @@ const orderSchema = new Schema<IOrder>(
         values: Object.values(OrderStatus),
         message: '{VALUE} is not a valid order status'
       },
-      default: OrderStatus.PENDING,
-      index: true
+      default: OrderStatus.PENDING
     },
     paymentStatus: {
       type: String,
@@ -264,8 +261,7 @@ const orderSchema = new Schema<IOrder>(
         values: Object.values(PaymentStatus),
         message: '{VALUE} is not a valid payment status'
       },
-      default: PaymentStatus.PENDING,
-      index: true
+      default: PaymentStatus.PENDING
     },
     paymentMethodUsed: {
       type: String,
@@ -282,8 +278,7 @@ const orderSchema = new Schema<IOrder>(
     },
     transactionId: {
       type: String,
-      trim: true,
-      index: true
+      trim: true
     },
     orderNotes: {
       type: String,

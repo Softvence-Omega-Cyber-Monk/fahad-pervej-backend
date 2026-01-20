@@ -36,19 +36,16 @@ const ConversationSchema = new Schema<IConversation>(
     customerId: {
       type: String,
       required: true,
-      ref: 'User',
-      index: true,
+      ref: 'User'
     },
     vendorId: {
       type: String,
       required: true,
-      ref: 'User',
-      index: true,
+      ref: 'User'
     },
     productId: {
       type: String,
-      ref: 'Product',
-      index: true,
+      ref: 'Product'
     },
     messages: {
       type: [MessageSchema],
@@ -60,8 +57,7 @@ const ConversationSchema = new Schema<IConversation>(
     },
     lastMessageTime: {
       type: Date,
-      default: Date.now,
-      index: true,
+      default: Date.now
     },
     unreadCount: {
       customer: {

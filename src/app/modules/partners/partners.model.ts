@@ -36,13 +36,11 @@ const PartnerSchema = new Schema<IPartner>(
     },
     isActive: {
       type: Boolean,
-      default: true,
-      index: true,
+      default: true
     },
     displayOrder: {
       type: Number,
-      default: 0,
-      index: true,
+      default: 0
     },
   },
   { 

@@ -21,19 +21,16 @@ const PaymentSchema: Schema = new Schema(
   {
     userId: {
       type: String,
-      required: true,
-      index: true,
+      required: true
     },
     transactionId: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      unique: true
     },
     orderId: {
       type: String,
-      required: true,
-      index: true,
+      required: true
     },
     sessionId: {
       type: String,
