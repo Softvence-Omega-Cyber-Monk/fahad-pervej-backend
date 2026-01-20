@@ -17,7 +17,7 @@ const httpServer = http.createServer(app);
 const startServer = async () => {
   try {
     await mongoose.connect(MONGODB_URI);
-    console.log("✅ Connected to MongoDB");
+    console.log("✅ Connected to MongoDB::::::::", MONGODB_URI);
 
     // ✅ Add chat route (since it’s not in app.ts)
     app.use("/api/v1/chat", ChatRoute);
