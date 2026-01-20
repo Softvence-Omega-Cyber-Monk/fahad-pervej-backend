@@ -201,6 +201,8 @@ export class UserService {
     vendor.isVerified = true;
     await vendor.save();
 
+    console.log("aaaa");
+
     console.log("✅ Vendor verified successfully");
 
     // Send approval email (don't wait for it)
