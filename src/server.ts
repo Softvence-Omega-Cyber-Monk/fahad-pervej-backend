@@ -9,7 +9,7 @@ import { ChatRoute } from "./app/modules/chat/chat.route";
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = "mongodb+srv://fahadpervej:admin@cluster0.9o8rsbr.mongodb.net/fahadpervej?retryWrites=true&w=majority&appName=Cluster0";
+const MONGODB_URI = "mongodb+srv://fahadpervej:adminFahadPervej@cluster0.9o8rsbr.mongodb.net/?appName=Cluster0";
 
 const httpServer = http.createServer(app);
 

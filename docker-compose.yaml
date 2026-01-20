@@ -7,9 +7,6 @@ services:
     restart: unless-stopped
     ports:
       - "5056:5056"
-    environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb+srv://fahad_db_user:WEejxtGLxZtuoSeS@cluster0.a1ajj74.mongodb.net/?appName=Cluster0
     networks:
       - app-network
 

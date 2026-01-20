@@ -23,7 +23,7 @@ interface EnvConfig {
 
 export const enVars:EnvConfig = {
     PORT: process.env.PORT as string,
-    DB_URL: "mongodb+srv://fahadpervej:admin@cluster0.9o8rsbr.mongodb.net/fahadpervej?retryWrites=true&w=majority&appName=Cluster0" as string,
+    DB_URL: "mongodb+srv://fahadpervej:adminFahadPervej@cluster0.9o8rsbr.mongodb.net/?appName=Cluster0" as string,
     NODE_ENV: process.env.NODE_ENV as "development" | "production",
     CLOUDINARY: {
         CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME as string,
