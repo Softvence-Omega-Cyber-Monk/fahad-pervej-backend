@@ -10,6 +10,7 @@ dotenv.config();
 
 const PORT = process.env.PORT || 5056;
 const MONGODB_URI = process.env.DB_URL || "mongodb+srv://fahadpervej:adminFahadPervej@cluster0.9o8rsbr.mongodb.net/?appName=Cluster0";
+console.log(MONGODB_URI);
 
 console.log(MONGODB_URI);
 
