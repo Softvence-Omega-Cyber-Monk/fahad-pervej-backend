@@ -24,6 +24,7 @@ import { shippingRoutes } from "./app/modules/shipping/shipping.routes";
 import { PayoutRoutes } from "./app/modules/payout/payout.routes";
 import { CMSRouter } from "./app/modules/cms/cms.routes";
 import { normalizeParams } from "./app/middlewares/normalizeParams.middleware";
+import { LandingRouter } from "./app/modules/landing/landing.route";
 
 dotenv.config();
 
@@ -70,7 +71,7 @@ app.use("/api/v1/partners", PartnerRoutes)
 app.use("/api/v1/shipping", shippingRoutes)
 app.use("/api/v1/payouts", PayoutRoutes)
 app.use("/api/v1/cms", CMSRouter)
-
+app.use("/", LandingRouter);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({
