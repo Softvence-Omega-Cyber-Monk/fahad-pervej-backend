@@ -28,7 +28,6 @@ import { LandingRouter } from "./app/modules/landing/landing.route";
 
 dotenv.config();
 
-// ✅ Create Express app
 const app = express();
 
 const allowedOrigins = [
@@ -41,9 +40,8 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -56,27 +54,11 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 204,
-  preflightContinue: false, // Don't pass preflight to next handler
-  maxAge: 86400 // Cache preflight for 24 hours
+  preflightContinue: false, 
+  maxAge: 86400 
 };
-
-// ✅ Apply CORS globally - MUST BE FIRST
 app.use(cors(corsOptions));
 
-// ✅ Handle preflight requests explicitly for all routes
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Max-Age', '86400'); // 24 hours
-    return res.sendStatus(204);
-  }
-  next();
-});
-
-// ✅ Middleware
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' })); // Increase limit for large requests
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));

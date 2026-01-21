@@ -50,7 +50,7 @@ const fileFilter = (
 export const multerUpload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // 10MB per file, max 5 files
+  limits: { fileSize: 99 * 1024 * 1024, files: 5 }, // 10MB per file, max 5 files
 });
 
 export const multerUploadVideo = multer({
