@@ -31,20 +31,39 @@ dotenv.config();
 // ✅ Create Express app
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://mditems.com",
+  "https://www.mditems.com",
+  "https://fahadpervez-client.vercel.app",
+];
+
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 204
+};
+
+// ✅ Apply CORS globally
+app.use(cors(corsOptions));
+
+
 // ✅ Middleware
 app.use(cookieParser());
 app.use(express.json());
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://mditems.com",
-      "https://fahadpervez-client.vercel.app",
-    ],
-    credentials: true,
-  })
-);
 app.use(express.urlencoded({ extended: true }));
 
 app.use(normalizeParams);
