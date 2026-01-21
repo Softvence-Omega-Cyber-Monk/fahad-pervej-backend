@@ -80,7 +80,5 @@ jobs:
             sudo docker pull amitavrchy/fahadpervej-mditems-app:latest
 
             # Build + start containers (ensure docker-compose.yaml matches the image name)
-            sudo docker compose up -d --build
-
-            # Cleanup dangling images
-            sudo docker system prune -f || true
+            sudo docker compose pull
+            sudo docker compose up -d
