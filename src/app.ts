@@ -47,6 +47,7 @@ const corsOptions = {
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn(`⚠️ CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -54,17 +55,38 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  preflightContinue: false, // Don't pass preflight to next handler
+  maxAge: 86400 // Cache preflight for 24 hours
 };
 
-// ✅ Apply CORS globally
+// ✅ Apply CORS globally - MUST BE FIRST
 app.use(cors(corsOptions));
 
+// ✅ Handle preflight requests explicitly for all routes
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400'); // 24 hours
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // ✅ Middleware
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Increase limit for large requests
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ✅ Increase timeout for file upload routes
+app.use('/api/v1/users/register/vendor', (req, res, next) => {
+  req.setTimeout(5 * 60 * 1000); // 5 minutes for vendor registration
+  res.setTimeout(5 * 60 * 1000);
+  next();
+});
 
 app.use(normalizeParams);
 
@@ -100,10 +122,20 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
-
 // ✅ Default route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json("Welcome to multivendor medicine app");
+});
+
+// ✅ Global error handler for CORS errors
+app.use((err: any, req: Request, res: Response, next: any) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS policy: Access denied from this origin'
+    });
+  }
+  next(err);
 });
 
 export default app;

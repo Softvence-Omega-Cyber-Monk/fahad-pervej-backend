@@ -33,9 +33,6 @@ export class UserService {
     payload: Partial<IUser>,
     files: VendorFiles
   ): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-    // Track uploaded URLs for cleanup on error
-    const uploadedUrls: string[] = [];
-    
     try {
       payload.role = "VENDOR";
       payload.isVerified = false;
@@ -56,52 +53,18 @@ export class UserService {
         throw new Error("Vendor contract is required");
       }
 
-      console.log("📁 Starting file uploads...");
+      console.log("📤 Starting parallel file uploads...");
 
-      // Upload CR Documents
-      try {
-        console.log("Uploading CR Documents...");
-        const crDocumentsUrl = await uploadToCloudinary(
-          files.CRDocuments.path,
-          "vendors/cr-documents"
-        );
-        payload.CRDocuments = crDocumentsUrl;
-        uploadedUrls.push(crDocumentsUrl);
-        console.log("✅ CR Documents uploaded");
-      } catch (error) {
-        console.error("❌ CR Documents upload failed:", error);
-        throw new Error(`Failed to upload CR Documents: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      // ✅ UPLOAD ALL FILES IN PARALLEL (much faster!)
+      const [crDocumentsUrl, signatureUrl, contractUrl] = await Promise.all([
+        uploadToCloudinary(files.CRDocuments.path, "vendors/cr-documents"),
+        uploadToCloudinary(files.vendorSignature.path, "vendors/signatures"),
+        uploadToCloudinary(files.vendorContract.path, "vendors/contracts")
+      ]);
 
-      // Upload Vendor Signature
-      try {
-        console.log("Uploading Vendor Signature...");
-        const signatureUrl = await uploadToCloudinary(
-          files.vendorSignature.path,
-          "vendors/signatures"
-        );
-        payload.vendorSignature = signatureUrl;
-        uploadedUrls.push(signatureUrl);
-        console.log("✅ Vendor Signature uploaded");
-      } catch (error) {
-        console.error("❌ Vendor Signature upload failed:", error);
-        throw new Error(`Failed to upload Vendor Signature: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-
-      // Upload Vendor Contract
-      try {
-        console.log("Uploading Vendor Contract...");
-        const contractUrl = await uploadToCloudinary(
-          files.vendorContract.path,
-          "vendors/contracts"
-        );
-        payload.vendorContract = contractUrl;
-        uploadedUrls.push(contractUrl);
-        console.log("✅ Vendor Contract uploaded");
-      } catch (error) {
-        console.error("❌ Vendor Contract upload failed:", error);
-        throw new Error(`Failed to upload Vendor Contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      payload.CRDocuments = crDocumentsUrl;
+      payload.vendorSignature = signatureUrl;
+      payload.vendorContract = contractUrl;
 
       console.log("✅ All files uploaded successfully");
 
@@ -110,6 +73,9 @@ export class UserService {
       await user.save();
 
       console.log("✅ Vendor registered in database");
+
+      // Clean up temp files after successful upload
+      this.cleanupTempFiles(files);
 
       // Send pending approval email (don't wait for it)
       vendorEmailService.sendVendorRegistrationPendingEmail(
@@ -126,11 +92,8 @@ export class UserService {
     } catch (error) {
       console.error("🔥 Vendor registration error:", error);
       
-      // Clean up temp files
+      // Clean up temp files on error
       this.cleanupTempFiles(files);
-      
-      // If error occurred after some uploads, you might want to delete them from Cloudinary
-      // This is optional - Cloudinary files can be managed separately
       
       // Re-throw with appropriate message
       if (error instanceof Error) {
@@ -201,8 +164,6 @@ export class UserService {
     vendor.isVerified = true;
     await vendor.save();
 
-    console.log("aaaa");
-
     console.log("✅ Vendor verified successfully");
 
     // Send approval email (don't wait for it)
@@ -261,20 +222,31 @@ export class UserService {
       delete payload.role;
       delete payload.isVerified;
 
+      // ✅ Upload images in parallel if both exist
+      const uploadPromises: Promise<string>[] = [];
+      
       if (files?.profileImage && files.profileImage.length > 0) {
-        const profileImageUrl = await uploadToCloudinary(
-          files.profileImage[0].path,
-          "users/profiles"
+        uploadPromises.push(
+          uploadToCloudinary(files.profileImage[0].path, "users/profiles")
         );
-        payload.profileImage = profileImageUrl;
       }
 
       if (files?.storeBanner && files.storeBanner.length > 0) {
-        const storeBannerUrl = await uploadToCloudinary(
-          files.storeBanner[0].path,
-          "users/store-banners"
+        uploadPromises.push(
+          uploadToCloudinary(files.storeBanner[0].path, "users/store-banners")
         );
-        payload.storeBanner = storeBannerUrl;
+      }
+
+      if (uploadPromises.length > 0) {
+        const uploadedUrls = await Promise.all(uploadPromises);
+        let urlIndex = 0;
+        
+        if (files?.profileImage && files.profileImage.length > 0) {
+          payload.profileImage = uploadedUrls[urlIndex++];
+        }
+        if (files?.storeBanner && files.storeBanner.length > 0) {
+          payload.storeBanner = uploadedUrls[urlIndex++];
+        }
       }
 
       if (payload.categories && typeof payload.categories === 'string') {

@@ -2,11 +2,13 @@ import { CookieOptions, Request, Response } from "express";
 import { userService } from "./user.service";
 
 // Cookie configuration helper function
-const getCookieOptions = (maxAge: number) => {
+const getCookieOptions = (maxAge: number): CookieOptions => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   return {
     httpOnly: true,
     secure: true,
-    sameSite: "none" as CookieOptions["sameSite"],
+    sameSite: "lax",
     maxAge: maxAge,
   };
 };
@@ -17,7 +19,7 @@ export class UserController {
       const { user, accessToken, refreshToken } = await userService.registerCustomer(req.body);
 
       // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(60 * 24 * 60 * 1000)); // 1 day
+      res.cookie("accessToken", accessToken, getCookieOptions(24 * 60 * 60 * 1000)); // 1 day
       res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
 
       res.status(201).json({
