@@ -28,46 +28,24 @@ import { LandingRouter } from "./app/modules/landing/landing.route";
 
 dotenv.config();
 
+// ✅ Create Express app
 const app = express();
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "https://mditems.com",
-  "https://fahadpervez-client.vercel.app",
-];
-
-const corsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.warn(`⚠️ CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 204,
-  preflightContinue: false, 
-  maxAge: 86400 
-};
-app.use(cors(corsOptions));
-
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://mditems.com",
+      "https://fahadpervez-client.vercel.app",
+    ],
+    credentials: true,
+  })
+);
+// ✅ Middleware
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' })); // Increase limit for large requests
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// ✅ Increase timeout for file upload routes
-app.use('/api/v1/users/register/vendor', (req, res, next) => {
-  req.setTimeout(5 * 60 * 1000); // 5 minutes for vendor registration
-  res.setTimeout(5 * 60 * 1000);
-  next();
-});
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use(normalizeParams);
 
@@ -103,20 +81,10 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+
 // ✅ Default route
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json("Welcome to multivendor medicine app");
-});
-
-// ✅ Global error handler for CORS errors
-app.use((err: any, req: Request, res: Response, next: any) => {
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({
-      success: false,
-      message: 'CORS policy: Access denied from this origin'
-    });
-  }
-  next(err);
 });
 
 export default app;
