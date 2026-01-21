@@ -20,6 +20,7 @@ export interface IHero extends Document {
   buttonLink: string;
   isActive: boolean;
   overlayOpacity: number;
+  order: number; // Add order field for sorting
   createdAt: Date;
   updatedAt: Date;
 }
@@ -104,6 +105,10 @@ const HeroSchema = new Schema<IHero>(
       default: 0.6,
       min: 0,
       max: 1,
+    },
+    order: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

@@ -2,8 +2,11 @@ import express from 'express';
 import {
   getTopbar,
   updateTopbar,
-  getHero,
+  getAllHeroes,
+  getHeroById,
+  createHero,
   updateHero,
+  deleteHero,
   getFooter,
   updateFooter,
 } from './cms.controller';
@@ -16,8 +19,11 @@ router.get('/topbar', getTopbar);
 router.put('/topbar', updateTopbar);
 
 // ========== HERO ROUTES ==========
-router.get('/hero', getHero);
-router.put('/hero', multerUpload.single('image'), updateHero);
+router.get('/hero', getAllHeroes);
+router.get('/hero/:id', getHeroById);
+router.post('/hero', multerUpload.single('image'), createHero);
+router.put('/hero/:id', multerUpload.single('image'), updateHero);
+router.delete('/hero/:id', deleteHero);
 
 // ========== FOOTER ROUTES ==========
 router.get('/footer', getFooter);
