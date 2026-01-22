@@ -19,7 +19,7 @@ import { ShipmentRouter } from "./app/modules/shipment/shipment.router";
 import { AFSPayment } from "./app/modules/afsPayment/afsPayment.routes";
 import { WalletRoutes } from "./app/modules/wallet/wallet.routes";
 import { PolicyRoutes } from "./app/modules/policy/policy.routes";
-import { PartnerRoutes } from "./app/modules/partners/partners.routes";
+import { PartnersRouter } from "./app/modules/partners/partners.routes";
 import { shippingRoutes } from "./app/modules/shipping/shipping.routes";
 import { PayoutRoutes } from "./app/modules/payout/payout.routes";
 import { CMSRouter } from "./app/modules/cms/cms.routes";
@@ -67,7 +67,7 @@ app.use("/api/v1/shipment", ShipmentRouter)
 app.use('/api/v1/afspay', AFSPayment)
 app.use("/api/v1/wallet", WalletRoutes);
 app.use("/api/v1/policy", PolicyRoutes)
-app.use("/api/v1/partners", PartnerRoutes)
+app.use("/api/v1/partners", PartnersRouter)
 app.use("/api/v1/shipping", shippingRoutes)
 app.use("/api/v1/payouts", PayoutRoutes)
 app.use("/api/v1/cms", CMSRouter)

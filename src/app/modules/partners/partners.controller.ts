@@ -1,276 +1,165 @@
-import { Request, Response } from "express";
-import { partnerService } from "./partners.service";
-import { ICreatePartner, IUpdatePartner, IPartnerFilters } from "./partners.interface";
+// src/controllers/partners.controller.ts
+import { Request, Response } from 'express';
+import { Partner } from './partners.model';
+import { uploadToCloudinary } from '../../../utils/cloudinaryUpload';
 
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-  };
-}
+// Get all partners
+export const getAllPartners = async (req: Request, res: Response) => {
+  try {
+    const partners = await Partner.find({ isActive: true }).sort({ order: 1, createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: partners,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching partners',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-export class PartnerController {
-  /**
-   * Create a new partner company (Admin/Vendor only)
-   */
-  createPartner = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const file = req.file;
+// Get partner by ID
+export const getPartnerById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const partner = await Partner.findById(id);
 
-      if (!file) {
-        res.status(400).json({ 
-          success: false, 
-          message: "Logo image is required" 
-        });
-        return;
-      }
-
-      const { companyName, website, description, displayOrder } = req.body;
-
-      if (!companyName) {
-        res.status(400).json({ 
-          success: false, 
-          message: "Company name is required" 
-        });
-        return;
-      }
-
-      const data: ICreatePartner = {
-        companyName,
-        website,
-        description,
-        displayOrder: displayOrder ? parseInt(displayOrder) : undefined,
-      };
-
-      const partner = await partnerService.createPartner(data, file.path);
-
-      res.status(201).json({ 
-        success: true, 
-        message: "Partner company created successfully", 
-        data: partner 
-      });
-    } catch (error: any) {
-      console.error("Error creating partner:", error.message);
-      res.status(400).json({ 
-        success: false, 
-        message: error.message 
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Partner not found',
       });
     }
-  };
 
-  /**
-   * Get all partners (Admin only)
-   */
-  getAllPartners = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { isActive, searchTerm } = req.query;
+    res.status(200).json({
+      success: true,
+      data: partner,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching partner',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-      const filters: IPartnerFilters = {};
+// Create new partner
+export const createPartner = async (req: Request, res: Response) => {
+  try {
+    const { name, order } = req.body;
+    const logoFile = req.file;
 
-      if (isActive !== undefined) {
-        filters.isActive = isActive === "true";
-      }
-
-      if (searchTerm) {
-        filters.searchTerm = searchTerm as string;
-      }
-
-      const partners = await partnerService.getAllPartners(filters);
-
-      res.status(200).json({ 
-        success: true, 
-        count: partners.length,
-        data: partners 
-      });
-    } catch (error: any) {
-      console.error("Error fetching partners:", error.message);
-      res.status(500).json({ 
-        success: false, 
-        message: "Failed to fetch partners" 
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Partner name is required',
       });
     }
-  };
 
-  /**
-   * Get active partners (Public endpoint)
-   */
-  getActivePartners = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const partners = await partnerService.getActivePartners();
-
-      res.status(200).json({ 
-        success: true, 
-        count: partners.length,
-        data: partners 
-      });
-    } catch (error: any) {
-      console.error("Error fetching active partners:", error.message);
-      res.status(500).json({ 
-        success: false, 
-        message: "Failed to fetch active partners" 
+    if (!logoFile) {
+      return res.status(400).json({
+        success: false,
+        message: 'Partner logo is required',
       });
     }
-  };
 
-  /**
-   * Get partner by ID
-   */
-  getPartnerById = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const partner = await partnerService.getPartnerById(id);
+    const logoUrl = await uploadToCloudinary(logoFile.path, 'partners');
 
-      if (!partner) {
-        res.status(404).json({ 
-          success: false, 
-          message: "Partner not found" 
-        });
-        return;
-      }
+    const partner = await Partner.create({
+      logo: logoUrl,
+      name,
+      order: order !== undefined ? parseInt(order) : 0,
+      isActive: true,
+    });
 
-      res.status(200).json({ 
-        success: true, 
-        data: partner 
-      });
-    } catch (error: any) {
-      console.error("Error fetching partner:", error.message);
-      res.status(400).json({ 
-        success: false, 
-        message: error.message 
-      });
-    }
-  };
+    res.status(201).json({
+      success: true,
+      message: 'Partner created successfully',
+      data: partner,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating partner',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
 
-  /**
-   * Update partner (Admin/Vendor only)
-   */
-  updatePartner = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const file = req.file;
-      const { companyName, website, description, isActive, displayOrder } = req.body;
+// Update partner
+export const updatePartner = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, order } = req.body;
+    const logoFile = req.file;
 
-      const data: IUpdatePartner = {};
-
-      if (companyName !== undefined) data.companyName = companyName;
-      if (website !== undefined) data.website = website;
-      if (description !== undefined) data.description = description;
-      if (isActive !== undefined) data.isActive = isActive === "true" || isActive === true;
-      if (displayOrder !== undefined) data.displayOrder = parseInt(displayOrder);
-
-      const partner = await partnerService.updatePartner(id, data, file?.path);
-
-      res.status(200).json({ 
-        success: true, 
-        message: "Partner updated successfully", 
-        data: partner 
-      });
-    } catch (error: any) {
-      console.error("Error updating partner:", error.message);
-      res.status(400).json({ 
-        success: false, 
-        message: error.message 
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Partner name is required',
       });
     }
-  };
 
-  /**
-   * Delete partner (Admin only)
-   */
-  deletePartner = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      await partnerService.deletePartner(id);
+    const partner = await Partner.findById(id);
 
-      res.status(200).json({ 
-        success: true, 
-        message: "Partner deleted successfully" 
-      });
-    } catch (error: any) {
-      console.error("Error deleting partner:", error.message);
-      res.status(400).json({ 
-        success: false, 
-        message: error.message 
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Partner not found',
       });
     }
-  };
 
-  /**
-   * Toggle partner active status (Admin/Vendor only)
-   */
-  togglePartnerStatus = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const partner = await partnerService.togglePartnerStatus(id);
+    let logoUrl = partner.logo;
+    if (logoFile) {
+      logoUrl = await uploadToCloudinary(logoFile.path, 'partners');
+    }
 
-      res.status(200).json({ 
-        success: true, 
-        message: `Partner ${partner.isActive ? "activated" : "deactivated"} successfully`, 
-        data: partner 
-      });
-    } catch (error: any) {
-      console.error("Error toggling partner status:", error.message);
-      res.status(400).json({ 
-        success: false, 
-        message: error.message 
+    partner.logo = logoUrl;
+    partner.name = name;
+    partner.order = order !== undefined ? parseInt(order) : partner.order;
+    await partner.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Partner updated successfully',
+      data: partner,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating partner',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// Delete partner
+export const deletePartner = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const partner = await Partner.findByIdAndDelete(id);
+
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Partner not found',
       });
     }
-  };
 
-  /**
-   * Reorder partners (Admin/Vendor only)
-   */
-  reorderPartners = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { orderData } = req.body;
-
-      if (!Array.isArray(orderData)) {
-        res.status(400).json({ 
-          success: false, 
-          message: "orderData must be an array" 
-        });
-        return;
-      }
-
-      await partnerService.reorderPartners(orderData);
-
-      res.status(200).json({ 
-        success: true, 
-        message: "Partners reordered successfully" 
-      });
-    } catch (error: any) {
-      console.error("Error reordering partners:", error.message);
-      res.status(400).json({ 
-        success: false, 
-        message: error.message 
-      });
-    }
-  };
-
-  /**
-   * Get partners count (Admin only)
-   */
-  getPartnersCount = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { isActive } = req.query;
-      
-      const count = await partnerService.getPartnersCount(
-        isActive !== undefined ? isActive === "true" : undefined
-      );
-
-      res.status(200).json({ 
-        success: true, 
-        data: { count } 
-      });
-    } catch (error: any) {
-      console.error("Error counting partners:", error.message);
-      res.status(500).json({ 
-        success: false, 
-        message: "Failed to count partners" 
-      });
-    }
-  };
-}
-
-export const partnerController = new PartnerController();
+    res.status(200).json({
+      success: true,
+      message: 'Partner deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting partner',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
