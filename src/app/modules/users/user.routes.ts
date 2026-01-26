@@ -352,6 +352,29 @@ router.get("/customers", verifyToken, authorizeRoles("ADMIN"), userController.ge
 
 /**
  * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: Get user details by ID (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID (vendor or customer)
+ *     responses:
+ *       200:
+ *         description: User details fetched successfully
+ *       404:
+ *         description: User not found
+ */
+router.get("/:id", verifyToken, authorizeRoles("ADMIN"), userController.getUserDetails);
+
+/**
+ * @swagger
  * /users/vendor/verify/{id}:
  *   patch:
  *     summary: Verify a vendor (Admin only)

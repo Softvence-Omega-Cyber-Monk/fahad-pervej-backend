@@ -119,13 +119,6 @@ export const createHero = async (req: Request, res: Response) => {
     const { title, description, buttonText, buttonLink, overlayOpacity, order } = req.body;
     const imageFile = req.file;
 
-    if (!title || !description) {
-      return res.status(400).json({
-        success: false,
-        message: 'Required fields: title, description',
-      });
-    }
-
     if (!imageFile) {
       return res.status(400).json({
         success: false,
@@ -136,8 +129,8 @@ export const createHero = async (req: Request, res: Response) => {
     const imageUrl = await uploadToCloudinary(imageFile.path, 'cms/hero');
 
     const hero = await Hero.create({
-      title,
-      description,
+      title: title || '',
+      description: description || '',
       image: imageUrl,
       buttonText: buttonText || 'Start Shopping Now',
       buttonLink: buttonLink || '/shop',
@@ -166,13 +159,6 @@ export const updateHero = async (req: Request, res: Response) => {
     const { title, description, buttonText, buttonLink, overlayOpacity, order } = req.body;
     const imageFile = req.file;
 
-    if (!title || !description) {
-      return res.status(400).json({
-        success: false,
-        message: 'Required fields: title, description',
-      });
-    }
-
     const hero = await Hero.findById(id);
 
     if (!hero) {
@@ -187,11 +173,11 @@ export const updateHero = async (req: Request, res: Response) => {
       imageUrl = await uploadToCloudinary(imageFile.path, 'cms/hero');
     }
 
-    hero.title = title;
-    hero.description = description;
+    hero.title = title !== undefined ? title : hero.title;
+    hero.description = description !== undefined ? description : hero.description;
     hero.image = imageUrl;
-    hero.buttonText = buttonText || hero.buttonText;
-    hero.buttonLink = buttonLink || hero.buttonLink;
+    hero.buttonText = buttonText !== undefined ? buttonText : hero.buttonText;
+    hero.buttonLink = buttonLink !== undefined ? buttonLink : hero.buttonLink;
     hero.overlayOpacity = overlayOpacity !== undefined ? parseFloat(overlayOpacity) : hero.overlayOpacity;
     hero.order = order !== undefined ? parseInt(order) : hero.order;
     await hero.save();
@@ -251,8 +237,11 @@ export const getFooter = async (req: Request, res: Response) => {
         socialLinks: {},
         copyright: '© 2024 MDItems. All rights reserved.',
         privacyPolicy: 'Add your privacy policy here',
+        cookiePolicy: 'Add your cookie policy here',
         shippingPolicy: 'Add your shipping policy here',
         refundPolicy: 'Add your refund policy here',
+        buyerProtection: 'Add your buyer protection policy here',
+        sellerProtection: 'Add your seller protection policy here',
         isActive: true,
       });
     }
@@ -272,13 +261,28 @@ export const getFooter = async (req: Request, res: Response) => {
 
 export const updateFooter = async (req: Request, res: Response) => {
   try {
-    const { description, address, email, phone, socialLinks, copyright, privacyPolicy, shippingPolicy, refundPolicy } = req.body;
+    const { 
+      description, 
+      address, 
+      email, 
+      phone, 
+      socialLinks, 
+      copyright, 
+      privacyPolicy, 
+      cookiePolicy,
+      shippingPolicy, 
+      refundPolicy,
+      buyerProtection,
+      sellerProtection
+    } = req.body;
     const logoFile = req.file;
 
-    if (!description || !address || !email || !phone || !copyright || !privacyPolicy || !shippingPolicy || !refundPolicy) {
+    if (!description || !address || !email || !phone || !copyright || 
+        !privacyPolicy || !cookiePolicy || !shippingPolicy || !refundPolicy ||
+        !buyerProtection || !sellerProtection) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: description, address, email, phone, copyright, privacyPolicy, shippingPolicy, refundPolicy',
+        message: 'All fields are required: description, address, email, phone, copyright, privacyPolicy, cookiePolicy, shippingPolicy, refundPolicy, buyerProtection, sellerProtection',
       });
     }
 
@@ -298,8 +302,11 @@ export const updateFooter = async (req: Request, res: Response) => {
       footer.socialLinks = socialLinks ? JSON.parse(socialLinks) : footer.socialLinks;
       footer.copyright = copyright;
       footer.privacyPolicy = privacyPolicy;
+      footer.cookiePolicy = cookiePolicy;
       footer.shippingPolicy = shippingPolicy;
       footer.refundPolicy = refundPolicy;
+      footer.buyerProtection = buyerProtection;
+      footer.sellerProtection = sellerProtection;
       await footer.save();
     } else {
       footer = await Footer.create({
@@ -311,8 +318,11 @@ export const updateFooter = async (req: Request, res: Response) => {
         socialLinks: socialLinks ? JSON.parse(socialLinks) : {},
         copyright,
         privacyPolicy,
+        cookiePolicy,
         shippingPolicy,
         refundPolicy,
+        buyerProtection,
+        sellerProtection,
         isActive: true,
       });
     }

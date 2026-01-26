@@ -14,7 +14,7 @@ export const setupSwagger = (app: Express) => {
       servers: [
         {
           // url: "https://fahadpervez-backend-803d.onrender.com/api/v1",
-          url: "http://localhost:5000/api/v1",
+          url: "http://localhost:5056/api/v1",
           description: "Live server",
         },
       ],
@@ -50,5 +50,5 @@ export const setupSwagger = (app: Express) => {
       operationsSorter: 'none',
     }
   }));
-  console.log("📘 Swagger docs available at: http://localhost:5000/docs");
+  console.log("📘 Swagger docs available at: http://localhost:5056/docs");
 };

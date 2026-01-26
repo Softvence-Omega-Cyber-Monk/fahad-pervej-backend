@@ -13,14 +13,14 @@ export interface ITopbar extends Document {
 
 // Hero CMS Interface
 export interface IHero extends Document {
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   image: string;
   buttonText: string;
   buttonLink: string;
   isActive: boolean;
   overlayOpacity: number;
-  order: number; // Add order field for sorting
+  order: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,8 +40,11 @@ export interface IFooter extends Document {
   };
   copyright: string;
   privacyPolicy: string;
+  cookiePolicy: string;
   shippingPolicy: string;
   refundPolicy: string;
+  buyerProtection: string;
+  sellerProtection: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -78,11 +81,13 @@ const HeroSchema = new Schema<IHero>(
   {
     title: {
       type: String,
-      required: true,
+      required: false,
+      default: '',
     },
     description: {
       type: String,
-      required: true,
+      required: false,
+      default: '',
     },
     image: {
       type: String,
@@ -152,12 +157,27 @@ const FooterSchema = new Schema<IFooter>(
       required: true,
       default: '',
     },
+    cookiePolicy: {
+      type: String,
+      required: true,
+      default: '',
+    },
     shippingPolicy: {
       type: String,
       required: true,
       default: '',
     },
     refundPolicy: {
+      type: String,
+      required: true,
+      default: '',
+    },
+    buyerProtection: {
+      type: String,
+      required: true,
+      default: '',
+    },
+    sellerProtection: {
       type: String,
       required: true,
       default: '',

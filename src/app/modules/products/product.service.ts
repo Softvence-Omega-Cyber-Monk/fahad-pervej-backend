@@ -15,11 +15,8 @@ class ProductService {
     async getProductById(id: string): Promise<IProduct | null> {
         return ProductModel.findById(id).populate("userId", "name email role").exec()
     }
-
-    async getAllProducts(userCountry?: string): Promise<IProduct[]> {
-        const query: any = {};
-        query.availableCountries = { $in: [userCountry] };
-        return ProductModel.find(query).populate("userId", "name email role").exec()
+    async getAllProducts(_userCountry?: string): Promise<IProduct[]> {
+        return ProductModel.find({}).populate("userId", "name email role").exec()
     }
 
     async updateProduct(id: string, data: Partial<IProduct>): Promise<IProduct | null> {
@@ -64,13 +61,12 @@ class ProductService {
         }));
     }
 
+    // ✅ UPDATED: getProductsByMark - Remove country filtering, return all marked products
     async getProductsByMark(type: string, userCountry?: string): Promise<IProduct[]> {
         const filter: any = {};
 
-        // Filter by country if provided
-        if (userCountry) {
-            filter.availableCountries = { $in: [userCountry] };
-        }
+        // DO NOT filter by country - show all marked products
+        // Frontend will handle availability display
 
         switch (type.toLowerCase()) {
             case 'special':
