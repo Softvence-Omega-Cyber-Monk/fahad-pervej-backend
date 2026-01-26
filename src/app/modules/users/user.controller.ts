@@ -256,6 +256,16 @@ export class UserController {
     }
   }
 
+  async getUserDetails(req: Request, res: Response) {
+    try {
+      const userId = req.params.id;
+      const user = await userService.getUserById(userId);
+      res.json({ success: true, data: user });
+    } catch (error: any) {
+      res.status(404).json({ success: false, message: error.message });
+    }
+  }
+
   async updateUser(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;

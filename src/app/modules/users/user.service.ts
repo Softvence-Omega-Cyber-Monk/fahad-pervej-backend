@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 import fs from "fs";
 import { vendorEmailService } from "./vendor.email.service";
+import { customerEmailService } from "./customer.email.service";
 
 interface TokenPair {
   accessToken: string;
@@ -24,6 +25,16 @@ export class UserService {
 
     const user = new UserModel(payload);
     await user.save();
+
+    console.log("✅ Customer registered in database");
+
+    // Send welcome email (don't wait for it)
+    customerEmailService.sendCustomerWelcomeEmail(
+      user.email,
+      user.name
+    ).catch(err => {
+      console.error("Failed to send customer welcome email:", err);
+    });
 
     const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
     return { user, accessToken, refreshToken };
