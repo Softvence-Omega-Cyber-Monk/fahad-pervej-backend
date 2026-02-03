@@ -449,7 +449,7 @@ export class OrderService {
             vendorOrderAmounts.set(vendorId, currentAmount + orderProduct.total);
           }
         }
-
+//aa
         if (vendorIds.size === 0) {
           console.error(`❌ No vendors found for order ${order.orderNumber}`);
         } else {
