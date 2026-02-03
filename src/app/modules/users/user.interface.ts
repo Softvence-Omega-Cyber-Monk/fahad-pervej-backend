@@ -21,7 +21,15 @@ export interface IOriginAddress {
   PostCode: string;
   CountryCode: string;
 }
-
+// Shipping Address interface for customers
+export interface IShippingAddress {
+  phone: string;
+  country: string;
+  address: string;   // street line
+  city: string;
+  state: string;
+  postalCode: string;
+}
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -34,9 +42,13 @@ export interface IUser extends Document {
   businessName?: string;
   businessCRNumber?: string;
   CRDocuments?: string;
+  CRDocumentsPublicId?: string;
+  CRDocumentsFormat?: string;
+  CRDocumentsSignedUrl?: string;
   businessType?: string;
   businessDescription?: string;
   country?: string;
+  shippingAddress?: IShippingAddress;
   
   // Origin Address for shipping
   originAddress?: IOriginAddress;
@@ -52,6 +64,9 @@ export interface IUser extends Document {
   isPrivacyPolicyAccepted?: boolean;
   vendorSignature?: string;
   vendorContract?: string;
+  vendorContractPublicId?: string;
+  vendorContractFormat?: string;
+  vendorContractSignedUrl?: string;
   isSellerPolicyAccepted?: boolean;
   address?: string;
   phone?: string | null;

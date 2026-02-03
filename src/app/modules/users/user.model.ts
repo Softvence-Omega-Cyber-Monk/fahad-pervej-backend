@@ -1,6 +1,17 @@
 import { Schema, model } from "mongoose";
 import bcrypt from "bcryptjs";
-import { IUser, IOriginAddress, PaymentMethod, ShippingLocation } from "./user.interface";
+import { IUser, IOriginAddress, PaymentMethod, ShippingLocation, IShippingAddress } from "./user.interface";
+
+
+
+const shippingAddressSchema = new Schema<IShippingAddress>({
+  phone: { type: String },
+  country: { type: String },
+  address: { type: String },
+  city: { type: String },
+  state: { type: String },
+  postalCode: { type: String },
+}, { _id: false });
 
 const originAddressSchema = new Schema<IOriginAddress>({
   Line1: { type: String, required: true },
@@ -31,23 +42,29 @@ const userSchema = new Schema<IUser>(
     businessName: { type: String },
     businessCRNumber: { type: String },
     CRDocuments: { type: String },
+    CRDocumentsPublicId: { type: String },
+    CRDocumentsFormat: { type: String },
     businessType: { type: String },
     businessDescription: { type: String },
     country: { type: String },
-    
+
     // Origin Address for vendors
     originAddress: {
       type: originAddressSchema,
       required: false
     },
-    
+    shippingAddress: {
+      type: shippingAddressSchema,
+      required: false
+    },
+
     productCategory: {
       type: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
       default: [],
     },
-    
+
     shippingLocation: {
-      type: [String], 
+      type: [String],
       default: [],
     },
     storeDescription: { type: String },
@@ -62,6 +79,8 @@ const userSchema = new Schema<IUser>(
     isPrivacyPolicyAccepted: { type: Boolean },
     vendorSignature: { type: String },
     vendorContract: { type: String },
+    vendorContractPublicId: { type: String },
+    vendorContractFormat: { type: String },
     isSellerPolicyAccepted: { type: Boolean },
     address: { type: String },
     orderNotification: { type: String, default: "New Order" },
@@ -82,14 +101,14 @@ const userSchema = new Schema<IUser>(
 
 // Hash password before save
 userSchema.pre("save", async function (next) {
-    if (!this.isModified("password")) return next();
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string) {
-    return bcrypt.compare(candidatePassword, this.password);
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 export const UserModel = model<IUser>("User", userSchema);
