@@ -276,6 +276,15 @@ const orderSchema = new Schema<IOrder>(
       ref: 'ShipmentCompany',
       required: [true, 'Shipping method is required']
     },
+    shippingProvider: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    shippingProviderId: {
+      type: String,
+      trim: true
+    },
     transactionId: {
       type: String,
       trim: true

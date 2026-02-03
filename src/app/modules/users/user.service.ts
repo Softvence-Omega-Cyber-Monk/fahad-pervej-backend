@@ -1,7 +1,7 @@
 import { UserModel } from "./user.model";
 import { IUser } from "./user.interface";
 import jwt from "jsonwebtoken";
-import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
+import { uploadToCloudinary, uploadToCloudinaryWithMeta, getSignedRawUrl, getPublicIdAndFormatFromUrl } from "../../../utils/cloudinaryUpload";
 import fs from "fs";
 import { vendorEmailService } from "./vendor.email.service";
 import { customerEmailService } from "./customer.email.service";
@@ -20,6 +20,28 @@ interface VendorFiles {
 export class UserService {
   async registerCustomer(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
     payload.role = "CUSTOMER";
+
+    // Nest flat shipping fields that arrive from the registration form
+    // into the shippingAddress sub-document that the schema expects.
+    if ((payload as any).phone || (payload as any).address || (payload as any).city) {
+      (payload as any).shippingAddress = {
+        phone:      (payload as any).phone      || '',
+        country:    (payload as any).country    || '',
+        address:    (payload as any).address    || '',
+        city:       (payload as any).city       || '',
+        state:      (payload as any).state      || '',
+        postalCode: (payload as any).postalCode || '',
+      };
+
+      // Remove every flat key so none of them also land as top-level
+      // fields on the User document.
+      delete (payload as any).phone;
+      delete (payload as any).country;
+      delete (payload as any).address;
+      delete (payload as any).city;
+      delete (payload as any).state;
+      delete (payload as any).postalCode;
+    }
     const existingUser = await UserModel.findOne({ email: payload.email });
     if (existingUser) throw new Error("Email already exists");
 
@@ -47,7 +69,7 @@ export class UserService {
     try {
       payload.role = "VENDOR";
       payload.isVerified = false;
-      
+
       const existingUser = await UserModel.findOne({ email: payload.email });
       if (existingUser) {
         throw new Error("Email already exists");
@@ -67,15 +89,19 @@ export class UserService {
       console.log("📤 Starting parallel file uploads...");
 
       // ✅ UPLOAD ALL FILES IN PARALLEL (much faster!)
-      const [crDocumentsUrl, signatureUrl, contractUrl] = await Promise.all([
-        uploadToCloudinary(files.CRDocuments.path, "vendors/cr-documents"),
+      const [crDocumentsMeta, signatureUrl, contractMeta] = await Promise.all([
+        uploadToCloudinaryWithMeta(files.CRDocuments.path, "vendors/cr-documents"),
         uploadToCloudinary(files.vendorSignature.path, "vendors/signatures"),
-        uploadToCloudinary(files.vendorContract.path, "vendors/contracts")
+        uploadToCloudinaryWithMeta(files.vendorContract.path, "vendors/contracts")
       ]);
 
-      payload.CRDocuments = crDocumentsUrl;
+      payload.CRDocuments = crDocumentsMeta.url;
+      payload.CRDocumentsPublicId = crDocumentsMeta.publicId;
+      payload.CRDocumentsFormat = crDocumentsMeta.format;
       payload.vendorSignature = signatureUrl;
-      payload.vendorContract = contractUrl;
+      payload.vendorContract = contractMeta.url;
+      payload.vendorContractPublicId = contractMeta.publicId;
+      payload.vendorContractFormat = contractMeta.format;
 
       console.log("✅ All files uploaded successfully");
 
@@ -99,13 +125,13 @@ export class UserService {
 
       const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
       return { user, accessToken, refreshToken };
-      
+
     } catch (error) {
       console.error("🔥 Vendor registration error:", error);
-      
+
       // Clean up temp files on error
       this.cleanupTempFiles(files);
-      
+
       // Re-throw with appropriate message
       if (error instanceof Error) {
         throw error;
@@ -171,7 +197,7 @@ export class UserService {
   async verifyVendor(vendorId: string): Promise<IUser | null> {
     const vendor = await UserModel.findById(vendorId);
     if (!vendor) throw new Error("Vendor not found");
-    
+
     vendor.isVerified = true;
     await vendor.save();
 
@@ -190,11 +216,13 @@ export class UserService {
   }
 
   async getAllVendors(): Promise<IUser[]> {
-    return UserModel.find({ role: "VENDOR" });
+    const vendors = await UserModel.find({ role: "VENDOR" }).lean();
+    return vendors.map(vendor => this.attachSignedVendorDocs(vendor));
   }
 
   async getPendingVendors(): Promise<IUser[]> {
-    return UserModel.find({ role: "VENDOR", isVerified: false });
+    const vendors = await UserModel.find({ role: "VENDOR", isVerified: false }).lean();
+    return vendors.map(vendor => this.attachSignedVendorDocs(vendor));
   }
 
   async getPendingVendorById(vendorId: string): Promise<IUser | null> {
@@ -202,13 +230,13 @@ export class UserService {
       _id: vendorId,
       role: "VENDOR",
       isVerified: false
-    });
+    }).lean();
 
     if (!vendor) {
       throw new Error("Pending vendor not found");
     }
 
-    return vendor;
+    return this.attachSignedVendorDocs(vendor);
   }
 
   async getAllCustomers(): Promise<IUser[]> {
@@ -216,9 +244,9 @@ export class UserService {
   }
 
   async getUserById(userId: string): Promise<IUser | null> {
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userId).lean();
     if (!user) throw new Error("User not found");
-    return user;
+    return this.attachSignedVendorDocs(user);
   }
 
   async updateUser(
@@ -235,7 +263,7 @@ export class UserService {
 
       // ✅ Upload images in parallel if both exist
       const uploadPromises: Promise<string>[] = [];
-      
+
       if (files?.profileImage && files.profileImage.length > 0) {
         uploadPromises.push(
           uploadToCloudinary(files.profileImage[0].path, "users/profiles")
@@ -251,7 +279,7 @@ export class UserService {
       if (uploadPromises.length > 0) {
         const uploadedUrls = await Promise.all(uploadPromises);
         let urlIndex = 0;
-        
+
         if (files?.profileImage && files.profileImage.length > 0) {
           payload.profileImage = uploadedUrls[urlIndex++];
         }
@@ -341,6 +369,50 @@ export class UserService {
       accessToken: this.generateAccessToken(id, role),
       refreshToken: this.generateRefreshToken(id, role),
     };
+  }
+
+  private attachSignedVendorDocs(user: any): any {
+    const result = { ...user };
+
+    const crSignedUrl = this.buildSignedRawUrl(
+      user.CRDocumentsPublicId,
+      user.CRDocumentsFormat,
+      user.CRDocuments
+    );
+    if (crSignedUrl) {
+      result.CRDocumentsSignedUrl = crSignedUrl;
+    }
+
+    const contractSignedUrl = this.buildSignedRawUrl(
+      user.vendorContractPublicId,
+      user.vendorContractFormat,
+      user.vendorContract
+    );
+    if (contractSignedUrl) {
+      result.vendorContractSignedUrl = contractSignedUrl;
+    }
+
+    return result;
+  }
+
+  private buildSignedRawUrl(
+    publicId?: string,
+    format?: string,
+    fallbackUrl?: string
+  ): string | undefined {
+    let resolvedPublicId = publicId;
+    let resolvedFormat = format;
+
+    if (!resolvedPublicId && fallbackUrl) {
+      const parsed = getPublicIdAndFormatFromUrl(fallbackUrl);
+      if (parsed) {
+        resolvedPublicId = parsed.publicId;
+        resolvedFormat = parsed.format || resolvedFormat;
+      }
+    }
+
+    if (!resolvedPublicId) return undefined;
+    return getSignedRawUrl(resolvedPublicId, resolvedFormat, 60 * 60);
   }
 }
 

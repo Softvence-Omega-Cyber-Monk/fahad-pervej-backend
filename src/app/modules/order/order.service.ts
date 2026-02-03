@@ -214,7 +214,11 @@ export class OrderService {
         currencyBreakdown: currencyBreakdown,
         promoCode: data.promoCode || null,
         estimatedDeliveryDate,
-        shippingMethodId: new mongoose.Types.ObjectId(data.shippingMethodId),
+        shippingMethodId: data.shippingMethodId && mongoose.Types.ObjectId.isValid(data.shippingMethodId)
+          ? new mongoose.Types.ObjectId(data.shippingMethodId)
+          : new mongoose.Types.ObjectId('000000000000000000000000'), // Default placeholder for Aramex or other providers
+        shippingProvider: data.shippingProvider || null,
+        shippingProviderId: data.shippingProviderId || null,
         orderNotes: data.orderNotes || null,
         status: orderStatus,
         paymentStatus: paymentStatus,
@@ -302,7 +306,9 @@ export class OrderService {
   }
 
   async getAllOrders(filters: IOrderFilters = {}): Promise<IOrder[]> {
-    const query: any = {};
+    const query: any = {
+      paymentStatus: 'COMPLETED',
+    };
 
     if (filters.userId) {
       query.userId = filters.userId;
@@ -310,10 +316,6 @@ export class OrderService {
 
     if (filters.status) {
       query.status = filters.status;
-    }
-
-    if (filters.paymentStatus) {
-      query.paymentStatus = filters.paymentStatus;
     }
 
     if (filters.orderNumber) {
@@ -333,11 +335,15 @@ export class OrderService {
     const orders = await Order.find(query)
       .populate('userId', 'name email phone address')
       .populate('products.productId')
-      .populate('shippingMethodId', 'name code contactEmail contactPhone trackingUrl')
+      .populate(
+        'shippingMethodId',
+        'name code contactEmail contactPhone trackingUrl'
+      )
       .sort({ createdAt: -1 });
 
     return orders;
   }
+
 
   async getOrderById(orderId: string): Promise<IOrder | null> {
     const order = await Order.findById(orderId)
@@ -357,8 +363,14 @@ export class OrderService {
     return order;
   }
 
-  async getUserOrders(userId: string, filters?: { status?: OrderStatus }): Promise<IOrder[]> {
-    const query: any = { userId: new mongoose.Types.ObjectId(userId) };
+  async getUserOrders(
+    userId: string,
+    filters?: { status?: OrderStatus }
+  ): Promise<IOrder[]> {
+    const query: any = {
+      userId: new mongoose.Types.ObjectId(userId),
+      paymentStatus: 'COMPLETED', // 👈 only completed payments
+    };
 
     if (filters?.status) {
       query.status = filters.status;
@@ -372,6 +384,7 @@ export class OrderService {
 
     return orders;
   }
+
 
   async updateOrderStatus(
     orderId: string,
@@ -454,7 +467,7 @@ export class OrderService {
                 vendorAmount
               );
 
-              console.log(`✅ Vendor earning created for vendor ${vendorId}. Amount: ${earning.vendorShare} BHD (90% of ${vendorAmount} BHD)`);
+              console.log(`✅ Vendor earning created for vendor ${vendorId}. Amount: ${earning.vendorShare} (90% of ${vendorAmount})`);
             } catch (vendorError) {
               console.error(`❌ Error creating earning for vendor ${vendorId}:`, vendorError);
             }

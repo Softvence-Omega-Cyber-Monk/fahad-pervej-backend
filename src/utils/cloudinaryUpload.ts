@@ -33,7 +33,7 @@ export const uploadToCloudinary = async (
 
     // Upload to Cloudinary
     const result: UploadApiResponse = await cloudinary.uploader.upload(
-      localPath, 
+      localPath,
       uploadOptions
     );
 
@@ -85,6 +85,78 @@ export const uploadToCloudinary = async (
   }
 };
 
+export interface CloudinaryUploadMeta {
+  url: string;
+  publicId: string;
+  format?: string;
+  resourceType: 'image' | 'video' | 'raw';
+}
+
+export const uploadToCloudinaryWithMeta = async (
+  localPath: string,
+  folder: string = "products"
+): Promise<CloudinaryUploadMeta> => {
+  try {
+    const config = cloudinary.config();
+    if (!config.api_key || !config.cloud_name) {
+      throw new Error("Cloudinary is not properly configured. Please check your environment variables.");
+    }
+
+    if (!fs.existsSync(localPath)) {
+      throw new Error(`File not found: ${localPath}`);
+    }
+
+    const fileExtension = path.extname(localPath).toLowerCase();
+    const fileName = path.basename(localPath, fileExtension);
+    console.log(`📤 Uploading file (meta): ${fileName}${fileExtension} to folder: ${folder}`);
+
+    const uploadOptions = getUploadOptions(fileExtension, folder, fileName);
+    const result: UploadApiResponse = await cloudinary.uploader.upload(
+      localPath,
+      uploadOptions
+    );
+
+    if (fs.existsSync(localPath)) {
+      fs.unlinkSync(localPath);
+    }
+
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      resourceType: result.resource_type as 'image' | 'video' | 'raw',
+    };
+  } catch (error) {
+    if (fs.existsSync(localPath)) {
+      try {
+        fs.unlinkSync(localPath);
+      } catch (unlinkError) {
+        console.error("Failed to delete temp file:", unlinkError);
+      }
+    }
+
+    console.error("❌ Cloudinary upload failed:", error);
+
+    if (error instanceof Error) {
+      if (error.message.includes("api_key") || error.message.includes("Invalid API Key")) {
+        throw new Error("Cloudinary API key is missing or invalid. Check your .env file.");
+      }
+      if (error.message.includes("File not found")) {
+        throw error;
+      }
+      if (error.message.includes("File size too large")) {
+        throw new Error("File size exceeds Cloudinary limits. Please use a smaller file.");
+      }
+      if (error.message.includes("q_auto") || error.message.includes("transformation")) {
+        throw new Error("File format not compatible with transformations. Uploading as raw file.");
+      }
+      throw new Error(`Cloudinary upload failed: ${error.message}`);
+    }
+
+    throw new Error("Failed to upload to Cloudinary");
+  }
+};
+
 /**
  * Get appropriate upload options based on file type
  */
@@ -105,7 +177,8 @@ function getUploadOptions(
     return {
       ...baseOptions,
       resource_type: 'raw',
-      format: 'pdf',
+      type: 'upload',
+      access_mode: 'public',
       // Don't apply any transformations to PDFs
     };
   }
@@ -138,6 +211,8 @@ function getUploadOptions(
   return {
     ...baseOptions,
     resource_type: 'raw',
+    type: 'upload',
+    access_mode: 'public',
   };
 }
 
@@ -157,6 +232,46 @@ export const deleteFromCloudinary = async (
   } catch (error) {
     console.error("Failed to delete from Cloudinary:", error);
     return false;
+  }
+};
+
+export const getSignedRawUrl = (
+  publicId: string,
+  format?: string,
+  expiresInSeconds: number = 60 * 60
+): string => {
+  const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  return cloudinary.url(publicId, {
+    resource_type: 'raw',
+    type: 'upload',
+    sign_url: true,
+    format,
+    expires_at: expiresAt,
+  });
+};
+
+export const getPublicIdAndFormatFromUrl = (
+  url: string
+): { publicId: string; format?: string } | null => {
+  try {
+    const cleanUrl = url.split('?')[0];
+    const parts = cleanUrl.split('/');
+    const uploadIndex = parts.findIndex(part => part === 'upload');
+    if (uploadIndex === -1) return null;
+
+    const pathAfterUpload = parts.slice(uploadIndex + 1).join('/');
+    const withoutVersion = pathAfterUpload.replace(/\/v\d+\//, '/');
+    const lastDot = withoutVersion.lastIndexOf('.');
+    if (lastDot === -1) {
+      return { publicId: withoutVersion };
+    }
+
+    const publicId = withoutVersion.slice(0, lastDot);
+    const format = withoutVersion.slice(lastDot + 1);
+    return { publicId, format };
+  } catch (error) {
+    console.error("Failed to extract public ID and format from URL:", error);
+    return null;
   }
 };
 

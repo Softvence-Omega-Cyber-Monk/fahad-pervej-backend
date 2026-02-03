@@ -24,14 +24,453 @@ interface IVendorOrderEmailData {
 }
 
 export class EmailService {
-  sendAdminOrderNotification(adminEmail: string, arg1: IOrder & Required<{ _id: unknown; }> & { __v: number; }) {
-    throw new Error('Method not implemented.');
+  /**
+   * Send order cancellation email to customer
+   */
+  async sendOrderCancellationEmail(
+    customerEmail: string,
+    customerName: string,
+    order: IOrder,
+    reason?: string
+  ): Promise<void> {
+    try {
+      console.log(`📧 Attempting to send cancellation email to customer: ${customerEmail}`);
+
+      // Validate email address
+      if (!customerEmail || !this.isValidEmail(customerEmail)) {
+        console.error(`❌ Invalid customer email address: ${customerEmail}`);
+        throw new Error(`Invalid customer email address: ${customerEmail}`);
+      }
+
+      const reasonSection = reason ? `
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #fff3e0; padding: 15px; border-radius: 6px; border-left: 4px solid #FF9800;">
+                <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #333;">Cancellation Reason</h3>
+                <p style="margin: 0; font-size: 14px; color: #666;">${reason}</p>
+              </div>
+            </td>
+          </tr>
+      ` : '';
+
+      const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Cancelled</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #F44336; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px;">❌ Order Cancelled</h1>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 20px 0; font-size: 16px; color: #333;">
+                Hello <strong>${customerName}</strong>,
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 16px; color: #333;">
+                Your order has been successfully cancelled. If you believe this was a mistake or have any questions, please contact our support team.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Cancellation Details -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px; border-left: 4px solid #F44336;">
+                <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #333;">Cancellation Details</h2>
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Order Number:</td>
+                    <td style="color: #333; font-weight: bold; font-size: 14px; text-align: right;">${order.orderNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Status:</td>
+                    <td style="color: #333; font-weight: bold; font-size: 14px; text-align: right;">
+                      <span style="background-color: #F44336; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">
+                        CANCELLED
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Cancelled On:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Refund Information -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #333;">Refund Information</h2>
+              <div style="background-color: #e8f5e9; padding: 20px; border-radius: 6px;">
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Order Total:</td>
+                    <td style="color: #333; font-weight: bold; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.grandTotal.toFixed(3)}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Refund Amount:</td>
+                    <td style="color: #2e7d32; font-weight: bold; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.grandTotal.toFixed(3)}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="color: #666; font-size: 12px; padding-top: 10px; border-top: 1px solid #ddd;">
+                      <em>The refund has been processed and should appear in your account within 3-5 business days depending on your payment method.</em>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+
+          ${reasonSection}
+
+          <!-- Order Summary -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #333;">Order Summary</h2>
+              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px;">
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Order Date:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${new Date(order.createdAt).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Subtotal:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.totalPrice.toFixed(3)}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Shipping Fee:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.shippingFee.toFixed(3)}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Tax:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.tax.toFixed(3)}</td>
+                  </tr>
+                  ${order.discount > 0 ? `
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Discount:</td>
+                    <td style="color: #4CAF50; font-size: 14px; text-align: right;">- ${order.baseCurrency} ${order.discount.toFixed(3)}</td>
+                  </tr>
+                  ` : ''}
+                  <tr style="border-top: 2px solid #ddd;">
+                    <td style="color: #333; font-size: 18px; font-weight: bold; padding-top: 10px;">Grand Total:</td>
+                    <td style="color: #F44336; font-size: 18px; font-weight: bold; text-align: right; padding-top: 10px;">${order.baseCurrency} ${order.grandTotal.toFixed(3)}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Help Section -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 4px solid #2196F3;">
+                <p style="margin: 0; font-size: 14px; color: #1565c0;">
+                  <strong>Questions?</strong> If you have any concerns about this cancellation or would like to place a new order, please contact our support team.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 30px; background-color: #f9f9f9; border-top: 1px solid #eee;">
+              <p style="margin: 0 0 10px 0; font-size: 12px; color: #999; text-align: center;">
+                This is an automated notification. Please do not reply to this email.
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
+                &copy; ${new Date().getFullYear()} ${this.fromName}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+      `;
+
+      const mailOptions = {
+        from: `"${this.fromName}" <${this.fromAddress}>`,
+        to: customerEmail,
+        subject: `Order Cancelled - ${order.orderNumber}`,
+        html: emailHtml
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Cancellation email sent successfully to customer: ${customerEmail}`);
+      console.log(`📧 Message ID: ${info.messageId}`);
+    } catch (error) {
+      console.error('❌ Error sending cancellation email:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
+      // Don't throw error to prevent order cancellation failure
+    }
   }
-  sendOrderCancellationEmail(email: any, arg1: any, arg2: IOrder & Required<{ _id: unknown; }> & { __v: number; }, reason: string | undefined) {
-    throw new Error('Method not implemented.');
-  }
-  sendOrderStatusUpdateEmail(email: any, arg1: any, arg2: IOrder & Required<{ _id: unknown; }> & { __v: number; }, PENDING: OrderStatus, CONFIRMED: OrderStatus) {
-    throw new Error('Method not implemented.');
+
+  async sendOrderStatusUpdateEmail(
+    customerEmail: string,
+    customerName: string,
+    order: IOrder,
+    previousStatus: OrderStatus,
+    newStatus: OrderStatus
+  ): Promise<void> {
+    try {
+      console.log(`📧 Attempting to send status update email to customer: ${customerEmail}`);
+
+      // Validate email address
+      if (!customerEmail || !this.isValidEmail(customerEmail)) {
+        console.error(`❌ Invalid customer email address: ${customerEmail}`);
+        throw new Error(`Invalid customer email address: ${customerEmail}`);
+      }
+
+      // Get status-specific message and color
+      const statusConfig: { [key in OrderStatus]: { message: string; color: string; icon: string } } = {
+        [OrderStatus.PENDING]: {
+          message: 'Your order has been received and is pending confirmation.',
+          color: '#FFC107',
+          icon: '⏳'
+        },
+        [OrderStatus.CONFIRMED]: {
+          message: 'Great! Your order has been confirmed and will be prepared for shipment soon.',
+          color: '#2196F3',
+          icon: '✓'
+        },
+        [OrderStatus.PREPARING_FOR_SHIPMENT]: {
+          message: 'Your order is being carefully prepared and will be shipped very soon.',
+          color: '#FF9800',
+          icon: '📦'
+        },
+        [OrderStatus.OUT_FOR_DELIVERY]: {
+          message: 'Your order is on its way! It should arrive soon.',
+          color: '#4CAF50',
+          icon: '🚚'
+        },
+        [OrderStatus.DELIVERED]: {
+          message: 'Your order has been delivered! We hope you enjoy your purchase.',
+          color: '#4CAF50',
+          icon: '✅'
+        },
+        [OrderStatus.CANCELLED]: {
+          message: 'Your order has been cancelled. If you have any questions, please contact our support team.',
+          color: '#F44336',
+          icon: '❌'
+        }
+      };
+
+      const statusInfo = statusConfig[newStatus];
+      const trackingInfo = order.trackingNumber
+        ? `<tr><td style="color: #666; font-size: 14px;">Tracking Number:</td><td style="color: #333; font-size: 14px; text-align: right;"><strong>${order.trackingNumber}</strong></td></tr>`
+        : '';
+
+      const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Status Update</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          
+          <!-- Header with Status Color -->
+          <tr>
+            <td style="background-color: ${statusInfo.color}; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px;">${statusInfo.icon} Order Status Updated</h1>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 20px 0; font-size: 16px; color: #333;">
+                Hello <strong>${customerName}</strong>,
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 16px; color: #333;">
+                ${statusInfo.message}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Status Change Details -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px; border-left: 4px solid ${statusInfo.color};">
+                <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #333;">Status Details</h2>
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Order Number:</td>
+                    <td style="color: #333; font-weight: bold; font-size: 14px; text-align: right;">${order.orderNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Previous Status:</td>
+                    <td style="color: #999; font-size: 14px; text-align: right;">${previousStatus}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Current Status:</td>
+                    <td style="color: #333; font-weight: bold; font-size: 14px; text-align: right;">
+                      <span style="background-color: ${statusInfo.color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">
+                        ${newStatus}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Updated On:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}</td>
+                  </tr>
+                  ${trackingInfo}
+                </table>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Order Summary -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #333;">Order Summary</h2>
+              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px;">
+                <table width="100%" cellpadding="5" cellspacing="0">
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Order Date:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${new Date(order.createdAt).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Subtotal:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.totalPrice.toFixed(3)}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Shipping Fee:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.shippingFee.toFixed(3)}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Tax:</td>
+                    <td style="color: #333; font-size: 14px; text-align: right;">${order.baseCurrency} ${order.tax.toFixed(3)}</td>
+                  </tr>
+                  ${order.discount > 0 ? `
+                  <tr>
+                    <td style="color: #666; font-size: 14px;">Discount:</td>
+                    <td style="color: #4CAF50; font-size: 14px; text-align: right;">- ${order.baseCurrency} ${order.discount.toFixed(3)}</td>
+                  </tr>
+                  ` : ''}
+                  <tr style="border-top: 2px solid #ddd;">
+                    <td style="color: #333; font-size: 18px; font-weight: bold; padding-top: 10px;">Grand Total:</td>
+                    <td style="color: ${statusInfo.color}; font-size: 18px; font-weight: bold; text-align: right; padding-top: 10px;">${order.baseCurrency} ${order.grandTotal.toFixed(3)}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Shipping Address -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #333;">Shipping Address</h2>
+              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #333;"><strong>${order.shippingAddress.fullName}</strong></p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${order.shippingAddress.addressSpecific}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zipCode}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">${order.shippingAddress.country}</p>
+                <p style="margin: 0; font-size: 14px; color: #666;">Phone: ${order.shippingAddress.mobileNumber}</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Help Section -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 4px solid #2196F3;">
+                <p style="margin: 0; font-size: 14px; color: #1565c0;">
+                  <strong>Need Help?</strong> If you have any questions about your order, please don't hesitate to contact our support team.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 30px; background-color: #f9f9f9; border-top: 1px solid #eee;">
+              <p style="margin: 0 0 10px 0; font-size: 12px; color: #999; text-align: center;">
+                This is an automated notification. Please do not reply to this email.
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #999; text-align: center;">
+                &copy; ${new Date().getFullYear()} ${this.fromName}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+      `;
+
+      const mailOptions = {
+        from: `"${this.fromName}" <${this.fromAddress}>`,
+        to: customerEmail,
+        subject: `Order Status Update - ${order.orderNumber} is now ${newStatus}`,
+        html: emailHtml
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Status update email sent successfully to customer: ${customerEmail}`);
+      console.log(`📧 Message ID: ${info.messageId}`);
+    } catch (error) {
+      console.error('❌ Error sending status update email:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
+      // Don't throw error to prevent order status update failure
+    }
   }
   private transporter: nodemailer.Transporter;
   private fromAddress: string;

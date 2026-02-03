@@ -90,6 +90,8 @@ export interface IOrder extends Document {
   paymentStatus: PaymentStatus;
   paymentMethodUsed?: PaymentMethodType;
   shippingMethodId: Types.ObjectId;
+  shippingProvider?: string; // NEW: Shipping provider name (e.g., 'aramex', 'dhl')
+  shippingProviderId?: string; // NEW: External provider ID
   transactionId?: string;
   orderNotes: string | null;
   trackingNumber: string | null;
@@ -117,6 +119,8 @@ export interface ICreateOrder {
     currency?: string; // NEW: Currency for each product
   }>;
   shippingMethodId: string;
+  shippingProvider?: string; // NEW: Shipping provider name
+  shippingProviderId?: string; // NEW: External provider ID
   transactionId: string;
   totalPrice: number;
   shippingFee: number;
