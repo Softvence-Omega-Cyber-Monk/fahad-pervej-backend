@@ -8,7 +8,7 @@ import { ChatRoute } from "./app/modules/chat/chat.route";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5056;
+const PORT = parseInt(process.env.PORT) || 5056;
 const MONGODB_URI = process.env.DB_URL || "mongodb+srv://fahadpervej:adminFahadPervej@cluster0.9o8rsbr.mongodb.net/?appName=Cluster0";
 console.log("aaaa");
 const httpServer = http.createServer(app);
@@ -27,7 +27,7 @@ const startServer = async () => {
     console.log("💬 Socket.IO service initialized");
 
     // ✅ Start HTTP + Socket server
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`🌐 API URL: http://localhost:${PORT}/api/v1`);
       console.log(`📡 Socket.IO ready for connections`);
